@@ -54,7 +54,6 @@ async function init() {
     }
 }
 
-// Função de login com Google (COM A CORREÇÃO)
 async function handleGoogleLogin() {
     const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -99,15 +98,34 @@ async function handleSignatureSubmit(event) {
     submitSignatureBtn.textContent = 'Enviando...';
     const signatureImage = signaturePad.toDataURL('image/png');
     try {
-        const { error } = await supabase.from('assinaturas').insert({
+        // Salva os dados da assinatura
+        const { error: insertError } = await supabase.from('assinaturas').insert({
             documento_id: currentDocumentId,
             nome_signatario: currentUser.user_metadata.full_name,
             email_signatario: currentUser.email,
             cpf_cnpj_signatario: userCpfInput.value,
             imagem_assinatura_base64: signatureImage,
         });
-        if (error) throw error;
+        if (insertError) throw insertError;
+
+        // Atualiza o status do documento
         await supabase.from('documentos').update({ status: 'assinado' }).eq('id', currentDocumentId);
+        
+        // ---- ADIÇÃO FINAL: Chama a Edge Function para gerar o PDF ----
+        console.log("Invocando a função para gerar o PDF assinado...");
+        const { data: functionData, error: functionError } = await supabase.functions.invoke('gerar-pdf-assinado', {
+            body: { documento_id: currentDocumentId },
+        });
+
+        if (functionError) {
+            // Mostra um alerta, mas continua para a tela de sucesso, pois a assinatura JÁ foi salva.
+            alert("A assinatura foi salva, mas ocorreu um erro ao gerar o PDF final. Verifique o console.");
+            console.error("Erro na Edge Function:", functionError);
+        } else {
+            console.log("Resposta da Edge Function:", functionData);
+        }
+        // ----------------------------------------------------------------
+
         showSuccessView();
     } catch (error) {
         alert(`Erro ao salvar assinatura: ${error.message}`);
