@@ -1,13 +1,12 @@
-// Configuração do Cliente Supabase (com suas credenciais)
+// Suas credenciais Supabase
 const SUPABASE_URL = 'https://nlefwzyyhspyqcicfouc.supabase.co'; 
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sZWZ3enl5aHNweXFjaWNmb3VjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAyMzAyMzMsImV4cCI6MjA3NTgwNjIzM30.CpKg1MKbcTtEUfmGDzcXPvZoTQH3dygUL61yYYiLPyQ';
 
-// NOVO: Definimos a URL base do nosso site no GitHub Pages
+// IMPORTANTE: A URL base do seu site no GitHub. Verifique se seu usuário e nome do repo estão corretos!
 const SITE_BASE_URL = 'https://altnixtecnologia.github.io/assinador-os';
 
 const supabase = self.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Selecionar os elementos do HTML
 const uploadForm = document.getElementById('upload-form');
 const osFileInput = document.getElementById('os-file');
 const clienteEmailInput = document.getElementById('cliente-email');
@@ -21,40 +20,24 @@ uploadForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const file = osFileInput.files[0];
     const email = clienteEmailInput.value || null;
-
     if (!file) {
         showFeedback('Por favor, selecione um arquivo PDF.', 'error');
         return;
     }
-    
     linkContainer.classList.add('hidden');
     setLoading(true);
-
     try {
         const fileName = `${Date.now()}-${file.name}`;
         const { data: uploadData, error: uploadError } = await supabase.storage.from('documentos').upload(fileName, file);
         if (uploadError) throw uploadError;
-        
-        const { data: insertData, error: insertError } = await supabase
-            .from('documentos')
-            .insert({
-                caminho_arquivo_storage: uploadData.path,
-                cliente_email: email
-            })
-            .select('id')
-            .single();
+        const { data: insertData, error: insertError } = await supabase.from('documentos').insert({ caminho_arquivo_storage: uploadData.path, cliente_email: email }).select('id').single();
         if (insertError) throw insertError;
-
         const documentoId = insertData.id;
-        
-        // ALTERADO: Usamos a nossa URL base para gerar o link correto
         const linkDeAssinatura = `${SITE_BASE_URL}/assinar.html?id=${documentoId}`;
-        
         linkInput.value = linkDeAssinatura;
         linkContainer.classList.remove('hidden');
         showFeedback('Link gerado! Copie e envie para seu cliente via WhatsApp.', 'success');
         uploadForm.reset();
-
     } catch (error) {
         console.error('Erro no processo:', error);
         showFeedback(`Erro: ${error.message}`, 'error');
@@ -67,9 +50,7 @@ copiarBtn.addEventListener('click', () => {
     linkInput.select();
     navigator.clipboard.writeText(linkInput.value);
     copiarBtn.textContent = 'Copiado!';
-    setTimeout(() => {
-        copiarBtn.textContent = 'Copiar';
-    }, 2000);
+    setTimeout(() => { copiarBtn.textContent = 'Copiar'; }, 2000);
 });
 
 function setLoading(isLoading) {
@@ -85,9 +66,5 @@ function setLoading(isLoading) {
 
 function showFeedback(message, type) {
     feedbackMessage.textContent = message;
-    if (type === 'success') {
-        feedbackMessage.className = 'mt-4 text-center text-sm text-green-600';
-    } else {
-        feedbackMessage.className = 'mt-4 text-center text-sm text-red-600';
-    }
+    feedbackMessage.className = `mt-4 text-center text-sm ${type === 'success' ? 'text-green-600' : 'text-red-600'}`;
 }
