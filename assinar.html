@@ -34,30 +34,12 @@
             <div class="bg-white p-6 rounded-lg shadow-md mb-6">
                 <h1 class="text-xl font-bold text-gray-800">Documento para Assinatura</h1>
                 <p class="text-sm text-gray-500">Revise a Ordem de Serviço abaixo.</p>
-                <div id="pdf-viewer" class="mt-4 border rounded-lg overflow-hidden" style="height: 600px;"></div>
+                <div id="pdf-viewer" class="mt-4 border rounded-lg overflow-y-auto" style="max-height: 80vh;"></div>
             </div>
             <div class="bg-white p-6 rounded-lg shadow-md">
                 <h2 class="text-xl font-bold text-gray-800 mb-4">Confirmação de Dados e Assinatura</h2>
                 <form id="signature-form" class="space-y-4">
-                    <div>
-                        <label for="user-name" class="block text-sm font-medium text-gray-700">Nome Completo</label>
-                        <input type="text" id="user-name" class="mt-1 block w-full bg-gray-100 p-2 border border-gray-300 rounded-md" readonly>
-                    </div>
-                    <div>
-                        <label for="user-email" class="block text-sm font-medium text-gray-700">E-mail</label>
-                        <input type="email" id="user-email" class="mt-1 block w-full bg-gray-100 p-2 border border-gray-300 rounded-md" readonly>
-                    </div>
-                    <div>
-                        <label for="user-cpf" class="block text-sm font-medium text-gray-700">CPF/CNPJ (Obrigatório)</label>
-                        <input type="text" id="user-cpf" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Digite seu CPF ou CNPJ" required>
-                    </div>
-                    <div id="signature-pad-container">
-                        <label class="block text-sm font-medium text-gray-700">Assine no campo abaixo</label>
-                        <canvas id="signature-pad" class="signature-pad w-full h-48 mt-1"></canvas>
-                        <div class="text-right mt-2"><button type="button" id="clear-signature-btn" class="text-sm text-blue-600 hover:underline">Limpar</button></div>
-                    </div>
-                    <button type="submit" id="submit-signature-btn" class="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition duration-300">Assinar e Finalizar</button>
-                </form>
+                    </form>
             </div>
         </div>
 
