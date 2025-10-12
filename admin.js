@@ -7,6 +7,16 @@ const SITE_BASE_URL = 'https://altnixtecnologia.github.io/assinador-os';
 
 const supabase = self.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// --- NOVA FUNÇÃO PARA LIMPAR O NOME DO ARQUIVO ---
+function sanitizarNomeArquivo(nome) {
+    // Remove acentos
+    const nomeSemAcentos = nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    // Substitui espaços e caracteres não permitidos por underline
+    return nomeSemAcentos
+        .replace(/\s+/g, '_') // Substitui um ou mais espaços por _
+        .replace(/[^a-zA-Z0-9.\-_]/g, '_'); // Substitui tudo que não for letra, número, ponto, hífen ou underline por _
+}
+
 const uploadForm = document.getElementById('upload-form');
 const osFileInput = document.getElementById('os-file');
 const clienteEmailInput = document.getElementById('cliente-email');
@@ -27,7 +37,9 @@ uploadForm.addEventListener('submit', async (event) => {
     linkContainer.classList.add('hidden');
     setLoading(true);
     try {
-        const fileName = `${Date.now()}-${file.name}`;
+        // --- ALTERAÇÃO AQUI: Usamos a nova função para limpar o nome ---
+        const fileName = `${Date.now()}-${sanitizarNomeArquivo(file.name)}`;
+
         const { data: uploadData, error: uploadError } = await supabase.storage.from('documentos').upload(fileName, file);
         if (uploadError) throw uploadError;
         const { data: insertData, error: insertError } = await supabase.from('documentos').insert({ caminho_arquivo_storage: uploadData.path, cliente_email: email }).select('id').single();
