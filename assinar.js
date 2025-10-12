@@ -1,4 +1,4 @@
-// Configuração do Supabase com a chave correta
+// Configuração do Supabase
 const SUPABASE_URL = 'https://nlefwzyyhspyqcicfouc.supabase.co'; 
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sZWZ3enl5aHNweXFjaWNmb3VjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAyMzAyMzMsImV4cCI6MjA3NTgwNjIzM30.CpKg1MKbcTtEUfmGDzcXPvZoTQH3dygUL61yYYiLPyQ';
 
@@ -6,7 +6,6 @@ const supabase = self.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js';
 
-// Seleção de Elementos da UI
 const loadingView = document.getElementById('loading-view');
 const mainContent = document.getElementById('main-content');
 const loginStep = document.getElementById('login-step');
@@ -26,7 +25,6 @@ const signaturePad = new SignaturePad(signaturePadCanvas);
 let currentDocumentId = null;
 let currentUser = null;
 
-// Função para recalibrar a área de assinatura
 function resizeCanvas() {
     const ratio = Math.max(window.devicePixelRatio || 1, 1);
     signaturePadCanvas.width = signaturePadCanvas.offsetWidth * ratio;
@@ -98,7 +96,6 @@ async function handleSignatureSubmit(event) {
     submitSignatureBtn.textContent = 'Enviando...';
     const signatureImage = signaturePad.toDataURL('image/png');
     try {
-        // Salva os dados da assinatura
         const { error: insertError } = await supabase.from('assinaturas').insert({
             documento_id: currentDocumentId,
             nome_signatario: currentUser.user_metadata.full_name,
@@ -108,23 +105,19 @@ async function handleSignatureSubmit(event) {
         });
         if (insertError) throw insertError;
 
-        // Atualiza o status do documento
         await supabase.from('documentos').update({ status: 'assinado' }).eq('id', currentDocumentId);
         
-        // ---- ADIÇÃO FINAL: Chama a Edge Function para gerar o PDF ----
         console.log("Invocando a função para gerar o PDF assinado...");
         const { data: functionData, error: functionError } = await supabase.functions.invoke('gerar-pdf-assinado', {
             body: { documento_id: currentDocumentId },
         });
 
         if (functionError) {
-            // Mostra um alerta, mas continua para a tela de sucesso, pois a assinatura JÁ foi salva.
             alert("A assinatura foi salva, mas ocorreu um erro ao gerar o PDF final. Verifique o console.");
             console.error("Erro na Edge Function:", functionError);
         } else {
             console.log("Resposta da Edge Function:", functionData);
         }
-        // ----------------------------------------------------------------
 
         showSuccessView();
     } catch (error) {
@@ -169,7 +162,6 @@ async function loadDocumentForSigning() {
     renderPdf(publicUrlData.publicUrl);
 }
 
-// Event Listeners
 window.addEventListener('DOMContentLoaded', init);
 googleLoginBtn.addEventListener('click', handleGoogleLogin);
 signatureForm.addEventListener('submit', handleSignatureSubmit);
