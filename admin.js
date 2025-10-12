@@ -1,8 +1,8 @@
-// Suas credenciais Supabase
+// Configuração do Supabase com a chave correta e confirmada
 const SUPABASE_URL = 'https://nlefwzyyhspyqcicfouc.supabase.co'; 
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sZWZ3enl5aHNweXFjaWNmb3VjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAyMzAyMzMsImV4cCI6MjA3NTgwNjIzM30.CpKg1MKbcTtEUfmGDzcXPvZoTQH3dygUL61yYYiLPyQ';
 
-// IMPORTANTE: A URL base do seu site no GitHub. Verifique se seu usuário e nome do repo estão corretos!
+// URL base do seu site no GitHub Pages.
 const SITE_BASE_URL = 'https://altnixtecnologia.github.io/assinador-os';
 
 const supabase = self.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
