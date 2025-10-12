@@ -6,7 +6,6 @@
     <title>Assinatura de Documento</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Estilos para o container da assinatura e feedback visual */
         #signature-pad-container { touch-action: none; }
         .signature-pad { border: 2px dashed #ccc; border-radius: 0.5rem; cursor: crosshair; }
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
@@ -14,32 +13,25 @@
     </style>
 </head>
 <body class="bg-gray-100">
-
     <div id="loading-view" class="flex flex-col items-center justify-center min-h-screen">
         <div class="loader"></div>
         <p class="mt-4 text-gray-600">Carregando documento...</p>
     </div>
-
     <div id="main-content" class="container mx-auto p-4 max-w-4xl hidden">
-        
         <div id="login-step" class="text-center bg-white p-8 rounded-lg shadow-lg">
             <h1 class="text-2xl font-bold text-gray-800 mb-4">Assinatura de Ordem de Serviço</h1>
             <p class="text-gray-600 mb-6">Para garantir a segurança e validade jurídica do processo, por favor, autentique-se usando sua conta Google.</p>
             <button id="google-login-btn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-300 inline-flex items-center">
-                <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 10.5V13.5H11.25V10.5H13.5Z M13.5 10.5H15.75C16.2804 10.5 16.7891 10.2893 17.1642 9.91421C17.5393 9.53914 17.75 9.03043 17.75 8.5C17.75 7.96957 17.5393 7.46086 17.1642 7.08579C16.7891 6.71071 16.2804 6.5 15.75 6.5H13.5V10.5Z M13.5 10.5H12.375M13.5 10.5V14.625C13.5 15.1554 13.2893 15.6641 12.9142 16.0392C12.5391 16.4143 12.0304 16.625 11.5 16.625H8.5C7.96957 16.625 7.46086 16.4143 7.08579 16.0392C6.71071 15.6641 6.5 15.1554 6.5 14.625V9.5C6.5 8.96957 6.71071 8.46086 7.08579 8.08579C7.46086 7.71071 7.96957 7.5 8.5 7.5H11.25V10.5H13.5Z" /></svg>
                 Entrar com Google
             </button>
             <p id="login-error" class="text-red-500 mt-4 text-sm"></p>
         </div>
-
         <div id="signing-step" class="hidden">
             <div class="bg-white p-6 rounded-lg shadow-md mb-6">
                 <h1 class="text-xl font-bold text-gray-800">Documento para Assinatura</h1>
                 <p class="text-sm text-gray-500">Revise a Ordem de Serviço abaixo.</p>
-                <div id="pdf-viewer" class="mt-4 border rounded-lg overflow-hidden" style="height: 600px;">
-                    </div>
+                <div id="pdf-viewer" class="mt-4 border rounded-lg overflow-hidden" style="height: 600px;"></div>
             </div>
-
             <div class="bg-white p-6 rounded-lg shadow-md">
                 <h2 class="text-xl font-bold text-gray-800 mb-4">Confirmação de Dados e Assinatura</h2>
                 <form id="signature-form" class="space-y-4">
@@ -58,23 +50,17 @@
                     <div id="signature-pad-container">
                         <label class="block text-sm font-medium text-gray-700">Assine no campo abaixo</label>
                         <canvas id="signature-pad" class="signature-pad w-full h-48 mt-1"></canvas>
-                        <div class="text-right mt-2">
-                            <button type="button" id="clear-signature-btn" class="text-sm text-blue-600 hover:underline">Limpar</button>
-                        </div>
+                        <div class="text-right mt-2"><button type="button" id="clear-signature-btn" class="text-sm text-blue-600 hover:underline">Limpar</button></div>
                     </div>
-                    <button type="submit" id="submit-signature-btn" class="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition duration-300">
-                        Assinar e Finalizar
-                    </button>
+                    <button type="submit" id="submit-signature-btn" class="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition duration-300">Assinar e Finalizar</button>
                 </form>
             </div>
         </div>
-
         <div id="success-step" class="hidden text-center bg-white p-8 rounded-lg shadow-lg">
              <h1 class="text-2xl font-bold text-green-600 mb-4">Documento Assinado com Sucesso!</h1>
              <p class="text-gray-600">Obrigado! Uma cópia do documento assinado foi registrada. Você pode fechar esta janela.</p>
         </div>
     </div>
-
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
