@@ -11,7 +11,9 @@ const mainContent = document.getElementById('main-content');
 const loginStep = document.getElementById('login-step');
 const signingStep = document.getElementById('signing-step');
 const successStep = document.getElementById('success-step');
-const googleLoginBtn = document.getElementById('google-login-btn');
+const magicLinkForm = document.getElementById('magic-link-form');
+const emailInput = document.getElementById('email-input');
+const loginFeedback = document.getElementById('login-feedback');
 const pdfViewer = document.getElementById('pdf-viewer');
 const signatureForm = document.getElementById('signature-form');
 const userNameInput = document.getElementById('user-name');
@@ -25,6 +27,32 @@ const signaturePad = new SignaturePad(signaturePadCanvas);
 let currentDocumentId = null;
 let currentUser = null;
 
+async function handleMagicLinkSubmit(event) {
+    event.preventDefault();
+    const email = emailInput.value;
+    const button = magicLinkForm.querySelector('button');
+
+    button.disabled = true;
+    button.textContent = 'Enviando...';
+    loginFeedback.textContent = '';
+
+    const { error } = await supabase.auth.signInWithOtp({
+        email: email,
+        options: {
+            emailRedirectTo: window.location.href,
+        }
+    });
+
+    if (error) {
+        loginFeedback.textContent = `Erro: ${error.message}`;
+        button.disabled = false;
+        button.textContent = 'Enviar Link de Acesso';
+    } else {
+        magicLinkForm.classList.add('hidden');
+        loginFeedback.innerHTML = '✅ Link enviado com sucesso!<br>Por favor, verifique sua caixa de entrada (e spam) e clique no link para continuar.';
+    }
+}
+
 async function init() {
     const params = new URLSearchParams(window.location.search);
     currentDocumentId = params.get('id');
@@ -32,13 +60,17 @@ async function init() {
         showError("ID do documento não encontrado na URL.");
         return;
     }
-    const { data: existingSignature } = await supabase.from('assinaturas').select('id').eq('documento_id', currentDocumentId).single();
-    if (existingSignature) {
-        showSuccessView();
-        return;
+    
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        const { data: existingSignature } = await supabase.from('assinaturas').select('id').eq('documento_id', currentDocumentId).single();
+        if (existingSignature) {
+            showSuccessView();
+            return;
+        }
+        loadingView.classList.add('hidden');
+        mainContent.classList.remove('hidden');
     }
-    loadingView.classList.add('hidden');
-    mainContent.classList.remove('hidden');
 }
 
 async function renderPdf(url) {
@@ -58,29 +90,21 @@ async function renderPdf(url) {
             await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
         }
     } catch (error) {
-        showError('Não foi possível carregar o PDF. O link pode ter expirado ou o arquivo está corrompido.');
+        showError('Não foi possível carregar o PDF.');
         console.error('Erro ao renderizar PDF:', error);
     }
 }
 
-async function handleGoogleLogin() {
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
-    if (error) document.getElementById('login-error').textContent = `Erro no login: ${error.message}`;
-}
-
 async function handleSignatureSubmit(event) {
     event.preventDefault();
-    if (signaturePad.isEmpty()) {
-        alert("Por favor, forneça sua assinatura.");
-        return;
-    }
+    if (signaturePad.isEmpty()) { alert("Por favor, forneça sua assinatura."); return; }
     submitSignatureBtn.disabled = true;
     submitSignatureBtn.textContent = 'Enviando...';
     const signatureImage = signaturePad.toDataURL('image/png');
     try {
         const { error } = await supabase.from('assinaturas').insert({
             documento_id: currentDocumentId,
-            nome_signatario: currentUser.user_metadata.full_name,
+            nome_signatario: userEmailInput.value,
             email_signatario: currentUser.email,
             cpf_cnpj_signatario: userCpfInput.value,
             imagem_assinatura_base64: signatureImage,
@@ -98,10 +122,12 @@ async function handleSignatureSubmit(event) {
 
 function showSigningView(user) {
     currentUser = user;
-    userNameInput.value = user.user_metadata.full_name || '';
-    userEmailInput.value = user.email || '';
+    userNameInput.value = user.email; // No Magic Link, não temos o nome, então usamos o email
+    userEmailInput.value = user.email;
     loginStep.classList.add('hidden');
+    mainContent.classList.remove('hidden');
     signingStep.classList.remove('hidden');
+    loadingView.classList.add('hidden');
     loadDocumentForSigning();
 }
 
@@ -120,7 +146,7 @@ function showError(message) {
 async function loadDocumentForSigning() {
     const { data: doc, error } = await supabase.from('documentos').select('caminho_arquivo_storage').eq('id', currentDocumentId).single();
     if (error || !doc) {
-        pdfViewer.innerHTML = '<p class="text-red-500 p-4">Erro: Documento não encontrado ou você não tem permissão para vê-lo.</p>';
+        pdfViewer.innerHTML = '<p class="text-red-500 p-4">Erro: Documento não encontrado.</p>';
         return;
     }
     const { data: publicUrlData } = supabase.storage.from('documentos').getPublicUrl(doc.caminho_arquivo_storage);
@@ -128,7 +154,7 @@ async function loadDocumentForSigning() {
 }
 
 window.addEventListener('DOMContentLoaded', init);
-googleLoginBtn.addEventListener('click', handleGoogleLogin);
+magicLinkForm.addEventListener('submit', handleMagicLinkSubmit);
 signatureForm.addEventListener('submit', handleSignatureSubmit);
 clearSignatureBtn.addEventListener('click', () => signaturePad.clear());
 
