@@ -54,17 +54,19 @@ async function init() {
     }
 }
 
-// Função de login com Google
+// Função de login com Google (COM A CORREÇÃO)
 async function handleGoogleLogin() {
     const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
+        options: {
+            redirectTo: window.location.href
+        }
     });
     if (error) {
         document.getElementById('login-error').textContent = `Erro no login: ${error.message}`;
     }
 }
 
-// Função para renderizar o PDF com escala dinâmica (responsivo)
 async function renderPdf(url) {
     pdfViewer.innerHTML = '<div class="flex justify-center items-center h-full"><div class="loader"></div></div>';
     try {
