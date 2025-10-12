@@ -2,6 +2,9 @@
 const SUPABASE_URL = 'https://nlefwzyyhspyqcicfouc.supabase.co'; 
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sZWZ3enl5aHNweXFjaWNmb3VjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAyMzAyMzMsImV4cCI6MjA3NTgwNjIzM30.CpKg1MKbcTtEUfmGDzcXPvZoTQH3dygUL61yYYiLPyQ';
 
+// NOVO: Definimos a URL base do nosso site no GitHub Pages
+const SITE_BASE_URL = 'https://altnixtecnologia.github.io/assinador-os';
+
 const supabase = self.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Selecionar os elementos do HTML
@@ -16,7 +19,6 @@ const copiarBtn = document.getElementById('copiar-link-btn');
 
 uploadForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-
     const file = osFileInput.files[0];
     const email = clienteEmailInput.value || null;
 
@@ -30,12 +32,7 @@ uploadForm.addEventListener('submit', async (event) => {
 
     try {
         const fileName = `${Date.now()}-${file.name}`;
-
-        const { data: uploadData, error: uploadError } = await supabase
-            .storage
-            .from('documentos')
-            .upload(fileName, file);
-
+        const { data: uploadData, error: uploadError } = await supabase.storage.from('documentos').upload(fileName, file);
         if (uploadError) throw uploadError;
         
         const { data: insertData, error: insertError } = await supabase
@@ -46,12 +43,12 @@ uploadForm.addEventListener('submit', async (event) => {
             })
             .select('id')
             .single();
-
         if (insertError) throw insertError;
 
         const documentoId = insertData.id;
-        // ATENÇÃO: O nome 'assinar.html' é a página que criaremos para o cliente.
-        const linkDeAssinatura = `${window.location.origin}/assinar.html?id=${documentoId}`;
+        
+        // ALTERADO: Usamos a nossa URL base para gerar o link correto
+        const linkDeAssinatura = `${SITE_BASE_URL}/assinar.html?id=${documentoId}`;
         
         linkInput.value = linkDeAssinatura;
         linkContainer.classList.remove('hidden');
@@ -78,12 +75,7 @@ copiarBtn.addEventListener('click', () => {
 function setLoading(isLoading) {
     if (isLoading) {
         submitButton.disabled = true;
-        submitButton.innerHTML = `
-            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Gerando...`;
+        submitButton.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Gerando...`;
         feedbackMessage.textContent = '';
     } else {
         submitButton.disabled = false;
