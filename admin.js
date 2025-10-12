@@ -7,12 +7,17 @@ const supabase = self.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // --- Elementos da UI ---
 const uploadForm = document.getElementById('upload-form');
 const osFileInput = document.getElementById('os-file');
+const clienteNomeInput = document.getElementById('cliente-nome');
+const clienteIdInput = document.getElementById('cliente-id');
+const clienteTelefoneInput = document.getElementById('cliente-telefone');
 const clienteEmailInput = document.getElementById('cliente-email');
 const submitButton = document.getElementById('submit-button');
 const feedbackMessage = document.getElementById('feedback-message');
-const linkContainer = document.getElementById('link-gerado-container');
+const actionsContainer = document.getElementById('actions-container');
 const linkInput = document.getElementById('link-gerado-input');
 const copiarBtn = document.getElementById('copiar-link-btn');
+const whatsappBtn = document.getElementById('whatsapp-btn');
+const whatsappContainer = document.getElementById('whatsapp-container');
 const documentList = document.getElementById('document-list');
 const listLoadingFeedback = document.getElementById('list-loading-feedback');
 const statusFilterButtons = document.getElementById('status-filter-buttons');
@@ -31,6 +36,7 @@ let totalDocuments = 0;
 let currentStatusFilter = 'todos';
 let currentSearchTerm = '';
 let debounceTimer;
+let allDocumentsData = []; // Cache para os detalhes
 
 // --- Funções ---
 
@@ -50,7 +56,7 @@ async function carregarDocumentos() {
     let query = supabase
         .from('documentos')
         .select(`
-            id, created_at, status, cliente_email, caminho_arquivo_storage, caminho_arquivo_assinado,
+            id, created_at, status, cliente_email, nome_cliente, id_cliente, caminho_arquivo_storage, caminho_arquivo_assinado,
             assinaturas ( nome_signatario, cpf_cnpj_signatario, email_signatario, assinado_em, imagem_assinatura_base64 )
         `, { count: 'exact' })
         .order('created_at', { ascending: false })
@@ -60,7 +66,7 @@ async function carregarDocumentos() {
         query = query.eq('status', currentStatusFilter);
     }
     if (currentSearchTerm) {
-        query = query.or(`caminho_arquivo_storage.ilike.%${currentSearchTerm}%,cliente_email.ilike.%${currentSearchTerm}%,assinaturas.nome_signatario.ilike.%${currentSearchTerm}%,assinaturas.cpf_cnpj_signatario.ilike.%${currentSearchTerm}%`);
+        query = query.or(`caminho_arquivo_storage.ilike.%${currentSearchTerm}%,cliente_email.ilike.%${currentSearchTerm}%,nome_cliente.ilike.%${currentSearchTerm}%,assinaturas.nome_signatario.ilike.%${currentSearchTerm}%,assinaturas.cpf_cnpj_signatario.ilike.%${currentSearchTerm}%`);
     }
 
     const { data, error, count } = await query;
@@ -72,6 +78,7 @@ async function carregarDocumentos() {
         return;
     }
 
+    allDocumentsData = data;
     totalDocuments = count;
     renderizarLista(data);
     atualizarControlesPaginacao();
@@ -98,7 +105,7 @@ function renderizarLista(docs) {
                 <div class="flex-grow min-w-0">
                     <p class="font-bold text-gray-800 break-all">${nomeArquivoOriginal}</p>
                     <p class="text-sm text-gray-500 truncate">
-                        ${assinatura ? `Assinado por: ${assinatura.nome_signatario || 'N/A'}` : `Enviado para: ${doc.cliente_email || 'N/A'}`}
+                        ${assinatura ? `Assinado por: ${assinatura.nome_signatario || 'N/A'}` : `Cliente: ${doc.nome_cliente || doc.cliente_email || 'N/A'}`}
                     </p>
                 </div>
                 <div class="flex-shrink-0 flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -146,6 +153,8 @@ function abrirModalDetalhes(doc) {
         <h4 class="font-bold">Documento</h4>
         <p><strong>Nome Original:</strong> ${doc.caminho_arquivo_storage.split('-').slice(1).join('-')}</p>
         <p><strong>Enviado em:</strong> ${new Date(doc.created_at).toLocaleString('pt-BR')}</p>
+        <p><strong>Cliente:</strong> ${doc.nome_cliente || 'Não informado'}</p>
+        <p><strong>ID Cliente:</strong> ${doc.id_cliente || 'Não informado'}</p>
         <hr class="my-4">
         <h4 class="font-bold">Dados da Assinatura</h4>
         <p><strong>Nome do Assinante:</strong> ${assinatura.nome_signatario || 'Não informado'}</p>
@@ -160,27 +169,54 @@ function abrirModalDetalhes(doc) {
     detailsModal.classList.add('active');
 }
 
+function setLoading(isLoading) {
+    if (isLoading) {
+        submitButton.disabled = true;
+        submitButton.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Gerando...`;
+        feedbackMessage.textContent = '';
+    } else {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Gerar Link de Assinatura';
+    }
+}
+
+function showFeedback(message, type) {
+    feedbackMessage.textContent = message;
+    feedbackMessage.className = `mt-4 text-center text-sm ${type === 'success' ? 'text-green-600' : 'text-red-600'}`;
+}
+
 // --- Event Listeners ---
 document.addEventListener('DOMContentLoaded', carregarDocumentos);
 
 uploadForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const file = osFileInput.files[0];
-    const email = clienteEmailInput.value || null;
+    const nomeCliente = clienteNomeInput.value || null;
+    const idCliente = clienteIdInput.value || null;
+    const telefoneCliente = clienteTelefoneInput.value || null;
+    const emailCliente = clienteEmailInput.value || null;
+
     if (!file) { showFeedback('Por favor, selecione um arquivo PDF.', 'error'); return; }
-    linkContainer.classList.add('hidden');
+    actionsContainer.classList.add('hidden');
     setLoading(true);
     try {
         const fileName = `${Date.now()}-${sanitizarNomeArquivo(file.name)}`;
         const { data: uploadData, error: uploadError } = await supabase.storage.from('documentos').upload(fileName, file);
         if(uploadError) throw uploadError;
-        const { data: insertData, error: insertError } = await supabase.from('documentos').insert({ caminho_arquivo_storage: uploadData.path, cliente_email: email }).select('id').single();
+        const { data: insertData, error: insertError } = await supabase.from('documentos').insert({ 
+            caminho_arquivo_storage: uploadData.path, 
+            nome_cliente: nomeCliente,
+            id_cliente: idCliente,
+            telefone_cliente: telefoneCliente,
+            cliente_email: emailCliente
+        }).select('id').single();
         if(insertError) throw insertError;
         const documentoId = insertData.id;
         const linkDeAssinatura = `${SITE_BASE_URL}/assinar.html?id=${documentoId}`;
         linkInput.value = linkDeAssinatura;
-        linkContainer.classList.remove('hidden');
-        showFeedback('Link gerado! Copie e envie.', 'success');
+        actionsContainer.classList.remove('hidden');
+        whatsappContainer.style.display = telefoneCliente ? 'block' : 'none';
+        showFeedback('Link gerado!', 'success');
         uploadForm.reset();
         carregarDocumentos();
     } catch (error) {
@@ -198,6 +234,13 @@ copiarBtn.addEventListener('click', () => {
     setTimeout(() => { copiarBtn.textContent = 'Copiar'; }, 2000);
 });
 
+whatsappBtn.addEventListener('click', () => {
+    const telefone = clienteTelefoneInput.value.replace(/\D/g, '');
+    const linkAssinatura = linkInput.value;
+    const mensagem = encodeURIComponent(`Olá! Por favor, assine a Ordem de Serviço acessando o link: ${linkAssinatura}`);
+    window.open(`https://wa.me/${telefone}?text=${mensagem}`, '_blank');
+});
+
 documentList.addEventListener('click', (e) => {
     const target = e.target;
     if (target.classList.contains('download-btn')) {
@@ -207,7 +250,7 @@ documentList.addEventListener('click', (e) => {
     }
     if (target.classList.contains('ver-detalhes-btn')) {
         const docId = target.dataset.docId;
-        const doc = allDocuments.find(d => d.id === docId);
+        const doc = allDocumentsData.find(d => d.id === docId);
         if (doc && doc.assinaturas && doc.assinaturas.length > 0) {
             abrirModalDetalhes(doc);
         }
@@ -225,6 +268,7 @@ statusFilterButtons.addEventListener('click', (e) => {
         currentStatusFilter = target.dataset.status;
         statusFilterButtons.querySelectorAll('button').forEach(btn => {
             btn.classList.remove('bg-blue-600', 'text-white');
+            btn.classList.add('bg-white', 'text-gray-700');
         });
         target.classList.add('bg-blue-600', 'text-white');
         carregarDocumentos();
@@ -258,19 +302,3 @@ nextPageBtn.addEventListener('click', () => {
 closeModalBtn.addEventListener('click', () => {
     detailsModal.classList.remove('active');
 });
-
-function setLoading(isLoading) {
-    if (isLoading) {
-        submitButton.disabled = true;
-        submitButton.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Gerando...`;
-        feedbackMessage.textContent = '';
-    } else {
-        submitButton.disabled = false;
-        submitButton.textContent = 'Gerar Link de Assinatura';
-    }
-}
-
-function showFeedback(message, type) {
-    feedbackMessage.textContent = message;
-    feedbackMessage.className = `mt-4 text-center text-sm ${type === 'success' ? 'text-green-600' : 'text-red-600'}`;
-}
