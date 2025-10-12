@@ -14,68 +14,68 @@
 <body class="bg-gray-100 min-h-screen p-4 sm:p-8">
 
     <div class="w-full max-w-md mx-auto bg-white rounded-lg shadow-md p-8 mb-8">
-        <h1 class="text-2xl font-bold text-center text-gray-800 mb-2">Enviar O.S. para Assinatura</h1>
-        <p class="text-center text-gray-500 mb-6">Anexe o PDF para gerar o link de assinatura.</p>
-        <form id="upload-form" class="space-y-6">
+        <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">Enviar O.S. para Assinatura</h1>
+        <form id="upload-form" class="space-y-4">
             <div>
-                <label for="os-file" class="block text-sm font-medium text-gray-700">1. Ordem de Serviço (PDF)</label>
+                <label for="os-file" class="block text-sm font-medium text-gray-700">1. Arquivo da O.S. (PDF)</label>
                 <input type="file" id="os-file" name="os-file" accept="application/pdf" required class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"/>
             </div>
+            
+            <h2 class="text-lg font-semibold text-gray-700 pt-4 border-t">2. Dados do Cliente</h2>
+            
             <div>
-                <label for="cliente-email" class="block text-sm font-medium text-gray-700">2. E-mail do Cliente (Opcional)</label>
-                <input type="email" id="cliente-email" name="cliente-email" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Apenas para seu controle interno">
+                <label for="cliente-nome" class="block text-sm font-medium text-gray-700">Nome do Cliente (Opcional)</label>
+                <input type="text" id="cliente-nome" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Ex: João da Silva">
             </div>
+
             <div>
+                <label for="cliente-id" class="block text-sm font-medium text-gray-700">Nº de Cadastro (Opcional)</label>
+                <input type="text" id="cliente-id" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Ex: 12345">
+            </div>
+
+            <div>
+                <label for="cliente-telefone" class="block text-sm font-medium text-gray-700">Telefone para WhatsApp (Opcional)</label>
+                <input type="tel" id="cliente-telefone" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="5548999998888">
+                <p class="mt-1 text-xs text-gray-500">Formato: 55 (Brasil) + DDD + Número (tudo junto)</p>
+            </div>
+
+            <div>
+                <label for="cliente-email" class="block text-sm font-medium text-gray-700">E-mail (Opcional)</label>
+                <input type="email" id="cliente-email" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Apenas para controle interno">
+            </div>
+
+            <div class="pt-4">
                 <button type="submit" id="submit-button" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     Gerar Link de Assinatura
                 </button>
             </div>
         </form>
         <div id="feedback-message" class="mt-4 text-center text-sm"></div>
-        <div id="link-gerado-container" class="mt-6 hidden">
-            <label for="link-gerado-input" class="block text-sm font-medium text-green-700">Link gerado com sucesso!</label>
-            <div class="mt-1 flex rounded-md shadow-sm">
-                <input type="text" id="link-gerado-input" readonly class="flex-1 block w-full rounded-none rounded-l-md sm:text-sm border-gray-300 bg-gray-50 p-2">
-                <button type="button" id="copiar-link-btn" class="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-700 text-sm hover:bg-gray-100">
-                    Copiar
+        
+        <div id="actions-container" class="mt-6 hidden space-y-4">
+             <div id="link-gerado-container">
+                <label class="block text-sm font-medium text-gray-700">Opção 1: Copiar Link Manualmente</label>
+                <div class="mt-1 flex rounded-md shadow-sm">
+                    <input type="text" id="link-gerado-input" readonly class="flex-1 block w-full rounded-none rounded-l-md sm:text-sm border-gray-300 bg-gray-50 p-2">
+                    <button type="button" id="copiar-link-btn" class="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-700 text-sm hover:bg-gray-100">
+                        Copiar
+                    </button>
+                </div>
+            </div>
+            <div id="whatsapp-container" class="hidden">
+                 <label class="block text-sm font-medium text-gray-700">Opção 2: Enviar via WhatsApp</label>
+                 <button type="button" id="whatsapp-btn" class="mt-1 w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+                    Abrir no WhatsApp
                 </button>
             </div>
         </div>
     </div>
 
     <div class="w-full max-w-5xl mx-auto bg-white rounded-lg shadow-md p-8">
-        <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-4">Consulta de Documentos</h2>
-        <div class="flex flex-col sm:flex-row gap-4 mb-6">
-            <div class="flex-shrink-0">
-                <span class="text-sm font-medium text-gray-700">Status:</span>
-                <div id="status-filter-buttons" class="mt-1 inline-flex rounded-md shadow-sm">
-                    <button data-status="todos" class="px-4 py-2 bg-blue-600 text-white border border-gray-300 rounded-l-md text-sm font-medium">Todos</button>
-                    <button data-status="assinado" class="px-4 py-2 bg-white border-t border-b border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium">Assinados</button>
-                    <button data-status="pendente" class="px-4 py-2 bg-white border border-gray-300 rounded-r-md text-gray-700 hover:bg-gray-50 text-sm font-medium">Pendentes</button>
-                </div>
-            </div>
-            <div class="flex-grow">
-                 <label for="search-input" class="text-sm font-medium text-gray-700">Buscar:</label>
-                 <input type="text" id="search-input" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Nome, e-mail, CPF, nome do arquivo...">
-            </div>
-        </div>
-        <div id="document-list" class="space-y-4">
-            <p id="list-loading-feedback" class="text-center text-gray-500 py-8">Carregando documentos...</p>
-        </div>
-        <div id="pagination-controls" class="flex justify-between items-center mt-6 border-t pt-4">
-            <button id="prev-page-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md text-sm font-medium hover:bg-gray-300 btn-disabled">Anterior</button>
-            <span id="page-info" class="text-sm text-gray-600"></span>
-            <button id="next-page-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md text-sm font-medium hover:bg-gray-300 btn-disabled">Próxima</button>
-        </div>
-    </div>
+       </div>
 
-    <div id="details-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-full overflow-y-auto p-6 relative">
-            <button id="close-modal-btn" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-3xl font-bold">&times;</button>
-            <h3 class="text-xl font-bold mb-4 border-b pb-2">Detalhes da Assinatura</h3>
-            <div id="modal-content" class="space-y-4 text-sm"></div>
-        </div>
-    </div>
+    <div id="details-modal" class="modal fixed inset-0 z-50">
+       </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="admin.js"></script>
