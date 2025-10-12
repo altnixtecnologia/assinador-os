@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Teste de Conexão Supabase</title>
+</head>
+<body>
+    <h1>Testando a conexão com a tabela "assinaturas"...</h1>
+    <p>Abra o console do navegador (F12) para ver o resultado.</p>
+    <div id="resultado"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = 'https://nlefwzyyhspyqcicfouc.supabase.co'; 
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sZWZ3enl5aHNweXFjaWNmb3VjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAyMzAyMzMsImV4cCI6MjA3NTgwNjIzM30.CpKg1MKbcTtEUfmGDzcXPvZoTQH3dygUL61yYYiLPyQ';
+        
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const resultadoDiv = document.getElementById('resultado');
+
+        async function testarLeitura() {
+            console.log("Tentando ler a tabela 'assinaturas'...");
+            resultadoDiv.innerHTML = "Tentando ler...";
+
+            // Garanta que o RLS esteja DESABILITADO no painel do Supabase para este teste
+            
+            const { data, error } = await supabase
+                .from('assinaturas')
+                .select('*'); // Pedindo para ler tudo
+
+            if (error) {
+                console.error("ERRO OCORREU:", error);
+                resultadoDiv.innerHTML = `<p style="color: red;"><strong>Erro ao ler a tabela:</strong></p><pre>${JSON.stringify(error, null, 2)}</pre>`;
+            } else {
+                console.log("SUCESSO:", data);
+                resultadoDiv.innerHTML = `<p style="color: green;"><strong>Sucesso!</strong> A tabela foi lida.</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+        }
+
+        testarLeitura();
+    </script>
+</body>
+</html>
