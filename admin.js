@@ -34,8 +34,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let startCoords = { x: 0, y: 0 };
     let rects = { tecnico: null, cliente: null };
     let pageDimensions = [];
+    let allDocumentsData = []; // Cache para detalhes
+    let currentPage = 0;
+    const ITENS_PER_PAGE = 50;
+    let totalDocuments = 0;
+    let currentStatusFilter = 'todos';
+    let currentSearchTerm = '';
+    let debounceTimer;
+    let docIdParaExcluir = null;
 
-    // --- Funções da Ferramenta de Marcação ---
+    // --- Funções ---
     function resetPreparationView() {
         preparationView.style.display = 'none';
         consultationView.style.display = 'none';
@@ -224,7 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         reader.readAsArrayBuffer(file);
     }
-
+    
     function setLoading(isLoading) {
         if (isLoading) {
             submitButton.disabled = true;
@@ -248,11 +256,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Listeners ---
     osFileInput.addEventListener('change', handleFileSelect);
     cancelPreparationBtn.addEventListener('click', resetPreparationView);
-    showConsultationBtn.addEventListener('click', () => {
-        uploadInitialView.style.display = 'none';
-        consultationView.style.display = 'block';
-        // (Aqui virá a lógica para carregar e mostrar a consulta)
-    });
     
     uploadForm.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -339,4 +342,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     window.addEventListener('resize', renderPdfPreview);
+
+    showConsultationBtn.addEventListener('click', () => {
+        uploadInitialView.style.display = 'none';
+        preparationView.style.display = 'none';
+        consultationView.style.display = 'block';
+        // (Aqui virá a lógica para carregar e mostrar a consulta)
+    });
 });
