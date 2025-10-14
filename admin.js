@@ -8,7 +8,6 @@ const supabase = self.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const uploadForm = document.getElementById('upload-form');
 const osFileInput = document.getElementById('os-file');
 const clienteNomeInput = document.getElementById('cliente-nome');
-const clienteIdInput = document.getElementById('cliente-id');
 const clienteTelefoneInput = document.getElementById('cliente-telefone');
 const clienteEmailInput = document.getElementById('cliente-email');
 const submitButton = document.getElementById('submit-button');
@@ -50,20 +49,33 @@ async function processarArquivoPDF(file) {
             const pdfBytes = new Uint8Array(this.result);
             const pdfDoc = await pdfjsLib.getDocument(pdfBytes).promise;
             let fullText = "";
-
             for (let i = 1; i <= pdfDoc.numPages; i++) {
                 const page = await pdfDoc.getPage(i);
                 const textContent = await page.getTextContent();
-                fullText += textContent.items.map(item => item.str).join(" ") + " \n";
+                fullText += textContent.items.map(item => item.str).join(" ") + "\n";
             }
 
-            const nomeRegex = /Cliente\s*\n\s*(.*)/i;
+            // --- LÓGICA DE EXTRAÇÃO ATUALIZADA (CPF/CNPJ) ---
             const osRegex = /Ordem de serviço N°\s*(\d+)/i;
             const foneRegex = /(?:Celular|Telefone|Fone):\s*([+\d\s()-]+)/i;
-            
-            const nomeMatch = fullText.match(nomeRegex);
+            const cnpjRegex = /(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/;
+            const cpfRegex = /(\d{3}\.\d{3}\.\d{3}-\d{2})/;
+
             const osMatch = fullText.match(osRegex);
             const foneMatch = fullText.match(foneRegex);
+            
+            let idMatch = fullText.match(cnpjRegex); // Tenta achar CNPJ primeiro
+            if (!idMatch) {
+                idMatch = fullText.match(cpfRegex); // Se não achar, tenta achar CPF
+            }
+
+            // Extração de nome mais inteligente
+            let nomeCliente = null;
+            const clienteIndex = fullText.toLowerCase().indexOf('cliente');
+            if (clienteIndex > -1 && idMatch) {
+                const textoIntermediario = fullText.substring(clienteIndex + 7, idMatch.index);
+                nomeCliente = textoIntermediario.replace(/\n/g, ' ').trim();
+            }
 
             let statusOS = null;
             const palavrasChave = ["Concluído", "Entregue", "Garantia", "Não autorizou"];
@@ -73,12 +85,9 @@ async function processarArquivoPDF(file) {
                     break;
                 }
             }
-
-            if (nomeMatch) clienteNomeInput.value = nomeMatch[1].trim();
-            if (foneMatch) clienteTelefoneInput.value = foneMatch[1].trim().replace(/\D/g, '');
             
-            // Não preenchemos o Nº de Cadastro (id_cliente)
-            clienteIdInput.value = ''; 
+            if (nomeCliente) clienteNomeInput.value = nomeCliente;
+            if (foneMatch) clienteTelefoneInput.value = foneMatch[1].trim().replace(/\D/g, '');
             
             uploadForm.dataset.extractedOs = osMatch ? osMatch[1].trim() : '';
             uploadForm.dataset.extractedStatusOs = statusOS || '';
@@ -101,35 +110,29 @@ async function carregarDocumentos() {
     listLoadingFeedback.style.display = 'block';
     listLoadingFeedback.textContent = "Carregando documentos...";
     documentList.innerHTML = '';
-
     const from = currentPage * ITENS_PER_PAGE;
     const to = from + ITENS_PER_PAGE - 1;
-
     let query = supabase
         .from('documentos')
         .select(`
-            id, created_at, status, cliente_email, nome_cliente, id_cliente, n_os, status_os,
+            id, created_at, status, cliente_email, nome_cliente, n_os, status_os,
             caminho_arquivo_storage, caminho_arquivo_assinado,
             assinaturas ( nome_signatario, cpf_cnpj_signatario, email_signatario, assinado_em, imagem_assinatura_base64 )
         `, { count: 'exact' })
         .order('created_at', { ascending: false })
         .range(from, to);
-
     if (currentStatusFilter !== 'todos') {
         query = query.eq('status', currentStatusFilter);
     }
     if (currentSearchTerm) {
         query = query.or(`caminho_arquivo_storage.ilike.%${currentSearchTerm}%,cliente_email.ilike.%${currentSearchTerm}%,nome_cliente.ilike.%${currentSearchTerm}%,n_os.ilike.%${currentSearchTerm}%,status_os.ilike.%${currentSearchTerm}%,assinaturas.nome_signatario.ilike.%${currentSearchTerm}%`);
     }
-
     const { data, error, count } = await query;
-
     listLoadingFeedback.style.display = 'none';
     if (error) {
         documentList.innerHTML = `<p class="text-center text-red-500 py-8">Erro ao carregar docs: ${error.message}</p>`;
         return;
     }
-
     allDocumentsData = data;
     totalDocuments = count;
     renderizarLista(data);
@@ -209,7 +212,6 @@ function abrirModalDetalhes(doc) {
         <p><strong>Nº da O.S.:</strong> ${doc.n_os || 'Não informado'}</p>
         <p><strong>Status do Serviço:</strong> ${doc.status_os || 'Não informado'}</p>
         <p><strong>Cliente (manual):</strong> ${doc.nome_cliente || 'Não informado'}</p>
-        <p><strong>ID Cliente (manual):</strong> ${doc.id_cliente || 'Não informado'}</p>
         <hr class="my-4">
         <h4 class="font-bold">Dados da Assinatura</h4>
         <p><strong>Nome do Assinante:</strong> ${assinatura.nome_signatario || 'Não informado'}</p>
@@ -259,7 +261,6 @@ uploadForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const file = osFileInput.files[0];
     const nomeCliente = clienteNomeInput.value || null;
-    const idCliente = clienteIdInput.value || null;
     const telefoneCliente = clienteTelefoneInput.value || null;
     const emailCliente = clienteEmailInput.value || null;
     const n_os = uploadForm.dataset.extractedOs || null;
@@ -276,7 +277,6 @@ uploadForm.addEventListener('submit', async (event) => {
         const { data: insertData, error: insertError } = await supabase.from('documentos').insert({ 
             caminho_arquivo_storage: uploadData.path, 
             nome_cliente: nomeCliente,
-            id_cliente: idCliente,
             telefone_cliente: telefoneCliente,
             cliente_email: emailCliente,
             n_os: n_os,
