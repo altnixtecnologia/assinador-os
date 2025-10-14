@@ -30,8 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Estado do Aplicativo ---
     let currentDocumentId = null;
     let currentUser = null;
-    let pdfDoc = null; // Armazena o documento PDF carregado
-    let pdfScale = 1.0; // Escala inicial do zoom
+    let pdfDoc = null; 
+    let pdfScale = 1.0; 
 
     // --- Funções de UI ---
     function showView(viewToShow) {
@@ -69,11 +69,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             pdfDoc = await pdfjsLib.getDocument(url).promise;
             
-            // Calcula a escala inicial para ajustar à largura do container
             const firstPage = await pdfDoc.getPage(1);
             const containerWidth = pdfViewer.clientWidth;
             const viewport = firstPage.getViewport({ scale: 1.0 });
-            pdfScale = containerWidth / viewport.width; // Responsivo
+            pdfScale = containerWidth / viewport.width; 
             
             await renderAllPdfPages();
         } catch (error) {
@@ -84,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     async function renderAllPdfPages() {
         if (!pdfDoc) return;
-        pdfViewer.innerHTML = ''; // Limpa o conteúdo anterior (loader ou páginas antigas)
+        pdfViewer.innerHTML = ''; 
         for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
             const page = await pdfDoc.getPage(pageNum);
             const viewport = page.getViewport({ scale: pdfScale });
@@ -143,6 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     async function handleSignatureSubmit(event) {
         event.preventDefault();
+        
         const cpfCnpjValue = userCpfInput.value.replace(/\D/g, '');
         if (cpfCnpjValue.length !== 11 && cpfCnpjValue.length !== 14) {
             showFeedback('CPF ou CNPJ inválido. Verifique o número de dígitos.');
@@ -152,20 +152,25 @@ document.addEventListener('DOMContentLoaded', () => {
             showFeedback("Por favor, forneça sua assinatura no campo designado.");
             return;
         }
+
         submitSignatureBtn.disabled = true;
         submitSignatureBtn.textContent = 'Enviando...';
+
         try {
             const signatureImage = signaturePad.toDataURL('image/png');
-            await db.saveSignature({
+            
+            // ### CORREÇÃO APLICADA AQUI ###
+            // Chamando a nova e correta função 'submitSignature'
+            await db.submitSignature({
                 documento_id: currentDocumentId,
                 nome_signatario: currentUser.user_metadata.full_name,
                 email_signatario: currentUser.email,
                 cpf_cnpj_signatario: userCpfInput.value,
                 imagem_assinatura_base64: signatureImage,
             });
-            await db.updateDocumentStatus(currentDocumentId, 'assinado');
-            await db.invokeEdgeFunction('gerar-pdf-assinado', { documento_id: currentDocumentId });
+
             showView('success-step');
+
         } catch (error) {
             showFeedback(`Erro ao salvar assinatura: ${error.message}`);
             console.error(error);
