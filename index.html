@@ -119,6 +119,28 @@
         </div>
     </div>
     
+    <div id="details-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-full overflow-y-auto p-6 relative">
+            <button id="close-modal-btn" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-3xl font-bold">&times;</button>
+            <h3 class="text-xl font-bold mb-4 border-b pb-2">Detalhes da Assinatura</h3>
+            <div id="modal-content" class="space-y-4 text-sm"></div>
+        </div>
+    </div>
+    <div id="delete-confirm-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6 relative">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">Confirmar Exclusão</h3>
+            <p class="text-sm text-gray-600 mb-4">Você está prestes a excluir este documento e todos os seus registros de assinatura permanentemente. Esta ação não pode ser desfeita.</p>
+            <div class="flex items-center mb-6">
+                <input id="delete-checkbox" type="checkbox" class="h-4 w-4 text-red-600 border-gray-300 rounded">
+                <label for="delete-checkbox" class="ml-2 block text-sm text-gray-900">Sim, eu entendo e quero excluir.</label>
+            </div>
+            <div class="flex justify-end gap-4">
+                <button id="cancel-delete-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md text-sm font-medium hover:bg-gray-300">Cancelar</button>
+                <button id="confirm-delete-btn" class="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium btn-disabled">Confirmar Exclusão</button>
+            </div>
+        </div>
+    </div>
+    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
     <script type="module" src="js/admin.js"></script>
