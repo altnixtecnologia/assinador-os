@@ -55,27 +55,17 @@ async function processarArquivoPDF(file) {
                 fullText += textContent.items.map(item => item.str).join(" ") + "\n";
             }
 
-            // --- LÓGICA DE EXTRAÇÃO ATUALIZADA (CPF/CNPJ) ---
+            // Expressões Regulares para extração
+            const nomeRegex = /Cliente\s*([\s\S]*?)\s*(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{3}\.\d{3}\.\d{3}-\d{2})/i;
             const osRegex = /Ordem de serviço N°\s*(\d+)/i;
             const foneRegex = /(?:Celular|Telefone|Fone):\s*([+\d\s()-]+)/i;
-            const cnpjRegex = /(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/;
-            const cpfRegex = /(\d{3}\.\d{3}\.\d{3}-\d{2})/;
-
+            // NOVA REGRA PARA O E-MAIL
+            const emailRegex = /(?:Email|E-mail):\s*([a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
+            
+            const nomeMatch = fullText.match(nomeRegex);
             const osMatch = fullText.match(osRegex);
             const foneMatch = fullText.match(foneRegex);
-            
-            let idMatch = fullText.match(cnpjRegex); // Tenta achar CNPJ primeiro
-            if (!idMatch) {
-                idMatch = fullText.match(cpfRegex); // Se não achar, tenta achar CPF
-            }
-
-            // Extração de nome mais inteligente
-            let nomeCliente = null;
-            const clienteIndex = fullText.toLowerCase().indexOf('cliente');
-            if (clienteIndex > -1 && idMatch) {
-                const textoIntermediario = fullText.substring(clienteIndex + 7, idMatch.index);
-                nomeCliente = textoIntermediario.replace(/\n/g, ' ').trim();
-            }
+            const emailMatch = fullText.match(emailRegex); // Executa a busca pelo e-mail
 
             let statusOS = null;
             const palavrasChave = ["Concluído", "Entregue", "Garantia", "Não autorizou"];
@@ -86,8 +76,10 @@ async function processarArquivoPDF(file) {
                 }
             }
             
-            if (nomeCliente) clienteNomeInput.value = nomeCliente;
-            if (foneMatch) clienteTelefoneInput.value = foneMatch[1].trim().replace(/\D/g, '');
+            // Preenche os campos encontrados
+            if (nomeMatch && nomeMatch[1]) clienteNomeInput.value = nomeMatch[1].trim();
+            if (foneMatch && foneMatch[1]) clienteTelefoneInput.value = foneMatch[1].trim().replace(/\D/g, '');
+            if (emailMatch && emailMatch[1]) clienteEmailInput.value = emailMatch[1].trim(); // PREENCHE O E-MAIL
             
             uploadForm.dataset.extractedOs = osMatch ? osMatch[1].trim() : '';
             uploadForm.dataset.extractedStatusOs = statusOS || '';
