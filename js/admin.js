@@ -42,6 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
     const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
     const deleteCheckbox = document.getElementById('delete-checkbox');
+    const navToNewBtn = document.getElementById('nav-to-new-btn');
+    const navToConsultBtn = document.getElementById('nav-to-consult-btn');
     
     // --- Estado do Aplicativo ---
     let pdfDoc = null;
@@ -314,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
         confirmDeleteBtn.textContent = 'Excluindo...';
         try {
             await db.deleteDocument(docIdParaExcluir);
-            showFeedback('Documento excluído com sucesso!', 'success'); // Usando feedback em vez de alert
+            showFeedback('Documento excluído com sucesso!', 'success');
             fecharModalExclusao();
             await carregarDocumentos();
         } catch (error) {
@@ -457,8 +459,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     whatsappBtn.addEventListener('click', () => {
         const telefone = clienteTelefoneInput.value.replace(/\D/g, '');
+        // Adiciona o código do Brasil (55) se não estiver presente
+        const telefoneCompleto = telefone.length > 11 ? telefone : `55${telefone}`;
         const mensagem = encodeURIComponent(`Olá! Por favor, assine a Ordem de Serviço acessando o link: ${linkInput.value}`);
-        window.open(`https://wa.me/55${telefone}?text=${mensagem}`, '_blank');
+        window.open(`https://wa.me/${telefoneCompleto}?text=${mensagem}`, '_blank');
     });
 
     documentList.addEventListener('click', (e) => {
@@ -523,7 +527,14 @@ document.addEventListener('DOMContentLoaded', () => {
     cancelDeleteBtn.addEventListener('click', fecharModalExclusao);
     confirmDeleteBtn.addEventListener('click', executarExclusao);
 
-    // Lida com fechar modais ao pressionar a tecla Escape
+    navToNewBtn.addEventListener('click', resetPreparationView);
+    navToConsultBtn.addEventListener('click', () => {
+        uploadInitialView.style.display = 'none';
+        preparationView.style.display = 'none';
+        consultationView.style.display = 'block';
+        carregarDocumentos();
+    });
+
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             detailsModal.classList.remove('active');
