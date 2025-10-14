@@ -3,7 +3,6 @@ import { SITE_BASE_URL, ITENS_PER_PAGE } from './config.js';
 import * as db from './supabaseService.js';
 import { setupPdfWorker, extractDataFromPdf } from './pdfHandler.js';
 
-// Configura o worker do pdf.js uma única vez
 setupPdfWorker();
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -44,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const deleteCheckbox = document.getElementById('delete-checkbox');
     const navToNewBtn = document.getElementById('nav-to-new-btn');
     const navToConsultBtn = document.getElementById('nav-to-consult-btn');
+    const refreshListBtn = document.getElementById('refresh-list-btn'); // NOVO ELEMENTO
     
     // --- Estado do Aplicativo ---
     let pdfDoc = null;
@@ -340,7 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <p><strong>Enviado em:</strong> ${new Date(doc.created_at).toLocaleString('pt-BR')}</p>
             <p><strong>Nº da O.S.:</strong> ${doc.n_os || 'Não informado'}</p>
             <p><strong>Status do Serviço:</strong> ${doc.status_os || 'Não informado'}</p>
-            <p><strong>Cliente (manual):</strong> ${doc.nome_cliente || 'Não informado'}</p>
+            <p><strong>Cliente:</strong> ${doc.nome_cliente || 'Não informado'}</p>
             <hr class="my-4">
             <h4 class="font-bold">Dados da Assinatura</h4>
             <p><strong>Nome do Assinante:</strong> ${assinatura.nome_signatario || 'Não informado'}</p>
@@ -387,6 +387,9 @@ document.addEventListener('DOMContentLoaded', () => {
         carregarDocumentos();
     });
     backToInitialViewBtn.addEventListener('click', resetPreparationView);
+    
+    // NOVO EVENTO para o botão de atualização
+    refreshListBtn.addEventListener('click', carregarDocumentos);
 
     uploadForm.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -459,7 +462,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     whatsappBtn.addEventListener('click', () => {
         const telefone = clienteTelefoneInput.value.replace(/\D/g, '');
-        // Adiciona o código do Brasil (55) se não estiver presente
         const telefoneCompleto = telefone.length > 11 ? telefone : `55${telefone}`;
         const mensagem = encodeURIComponent(`Olá! Por favor, assine a Ordem de Serviço acessando o link: ${linkInput.value}`);
         window.open(`https://wa.me/${telefoneCompleto}?text=${mensagem}`, '_blank');
