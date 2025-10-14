@@ -5,9 +5,6 @@ export const supabase = self.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_K
 
 // --- FUNÇÕES DO PAINEL ADMIN ---
 
-/**
- * Busca uma lista paginada de documentos com filtros e busca.
- */
 export async function getDocuments(page, itemsPerPage, filter, searchTerm) {
     const from = page * itemsPerPage;
     const to = from + itemsPerPage - 1;
@@ -32,27 +29,18 @@ export async function getDocuments(page, itemsPerPage, filter, searchTerm) {
     return await query;
 }
 
-/**
- * Faz upload de um arquivo para o Supabase Storage.
- */
 export async function uploadFile(fileName, file) {
     const { data, error } = await supabase.storage.from('documentos').upload(fileName, file);
     if (error) throw error;
     return data;
 }
 
-/**
- * Cria um novo registro de documento no banco de dados.
- */
 export async function createDocumentRecord(documentData) {
     const { data, error } = await supabase.from('documentos').insert(documentData).select('id').single();
     if (error) throw error;
     return data;
 }
 
-/**
- * Exclui um documento e suas assinaturas associadas.
- */
 export async function deleteDocument(docId) {
     const { error: signError } = await supabase.from('assinaturas').delete().eq('documento_id', docId);
     if (signError) throw signError;
@@ -61,9 +49,6 @@ export async function deleteDocument(docId) {
     if (docError) throw docError;
 }
 
-/**
- * Obtém a URL pública de um arquivo no Storage.
- */
 export function getPublicUrl(path) {
     const { data } = supabase.storage.from('documentos').getPublicUrl(path);
     return data.publicUrl;
@@ -76,18 +61,18 @@ export function getPublicUrl(path) {
  * Verifica se um documento já possui uma assinatura.
  */
 export async function checkIfSigned(docId) {
+    // ATUALIZADO AQUI: Forma mais robusta de verificar, evitando o erro 406.
     const { data, error } = await supabase
         .from('assinaturas')
         .select('id')
-        .eq('documento_id', docId)
-        .limit(1)
-        .single();
-    
-    if (error && error.code !== 'PGRST116') { // PGRST116 = 'no rows returned'
+        .eq('documento_id', docId);
+
+    if (error) {
         console.error("Erro em checkIfSigned:", error);
         return false;
     }
-    return !!data;
+    // Retorna true se o array de dados tiver pelo menos um item.
+    return data && data.length > 0;
 }
 
 /**
