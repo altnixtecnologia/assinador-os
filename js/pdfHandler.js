@@ -18,10 +18,15 @@ export async function extractDataFromPdf(file) {
                     fullText += textContent.items.map(item => item.str).join(" ") + "\n";
                 }
 
-                // --- Regex Melhoradas (Versão Final) ---
-                // Captura qualquer texto (incluindo quebras de linha) após "Cliente:" até encontrar o próximo campo conhecido.
+                // #####################################################################
+                // ### LINHA DE DEPURAÇÃO ATIVADA, CONFORME SOLICITADO ###
+                // #####################################################################
+                console.log("Texto extraído do PDF:", fullText);
+                
+
+                // --- Regex Melhoradas (Versão Final Mais Robusta) ---
                 const nomeRegex = /Cliente\s*:\s*([\s\S]+?)(?:Endereço:|CPF\/CNPJ:|Fone:|Celular:|Email:|Nº:)/i;
-                const osRegex = /Ordem de serviço N°\s*(\d+)/i;
+                const osRegex = /(?:Ordem de serviço|O\.S\.?)\s*N°?\s*(\d+)/i;
                 const foneRegex = /(?:Celular|Telefone|Fone)\s*:\s*.*?(\(?\d{2}\)?\s*\d{4,5}-?\d{4})/i;
                 const emailRegex = /(?:Email|E-mail)\s*:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
 
@@ -40,7 +45,6 @@ export async function extractDataFromPdf(file) {
                 }
 
                 resolve({
-                    // Limpa quebras de linha e espaços extras do nome capturado
                     nome: nomeMatch ? nomeMatch[1].replace(/\s+/g, ' ').trim() : '',
                     telefone: foneMatch ? foneMatch[1].replace(/\D/g, '') : '',
                     email: emailMatch ? emailMatch[1].trim() : '',
