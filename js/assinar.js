@@ -5,7 +5,6 @@ import { setupPdfWorker } from './pdfHandler.js';
 setupPdfWorker();
 
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Elementos da UI (SEÇÃO COMPLETA RESTAURADA) ---
     const loadingView = document.getElementById('loading-view');
     const mainContent = document.getElementById('main-content');
     const loginStep = document.getElementById('login-step');
@@ -27,23 +26,18 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const signaturePad = new SignaturePad(signaturePadCanvas);
 
-    // --- Estado do Aplicativo ---
     let currentDocumentId = null;
     let currentUser = null;
     let pdfDoc = null; 
     let pdfScale = 1.0; 
     let isRendering = false;
 
-    // --- Funções de UI ---
     function showView(viewToShow) {
         loadingView.classList.add('hidden');
         mainContent.classList.remove('hidden');
         [loginStep, signingStep, successStep].forEach(view => {
-            if (view.id === viewToShow) {
-                view.classList.remove('hidden');
-            } else {
-                view.classList.add('hidden');
-            }
+            if (view.id === viewToShow) view.classList.remove('hidden');
+            else view.classList.add('hidden');
         });
     }
 
@@ -64,24 +58,19 @@ document.addEventListener('DOMContentLoaded', () => {
         signaturePad.clear();
     }
 
-    // --- LÓGICA DE RENDERIZAÇÃO E ZOOM DO PDF ---
     async function loadAndRenderPdf(url) {
         if (isRendering) return;
         isRendering = true;
-
         pdfViewer.innerHTML = '<div class="flex justify-center items-center h-full"><div class="loader"></div></div>';
         try {
             pdfDoc = await pdfjsLib.getDocument(url).promise;
-            
             const firstPage = await pdfDoc.getPage(1);
             const containerWidth = pdfViewer.clientWidth;
             const viewport = firstPage.getViewport({ scale: 1.0 });
             pdfScale = containerWidth / viewport.width; 
-            
             await renderAllPdfPages();
         } catch (error) {
             showFeedback('Não foi possível carregar o documento PDF.');
-            console.error('Erro ao carregar PDF:', error);
         } finally {
             isRendering = false;
         }
@@ -103,7 +92,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Lógica Principal ---
     async function initializePage() {
         const params = new URLSearchParams(window.location.search);
         currentDocumentId = params.get('id');
@@ -111,21 +99,16 @@ document.addEventListener('DOMContentLoaded', () => {
             loadingView.innerHTML = `<p class="text-red-500 font-bold">ERRO: ID do documento não encontrado na URL.</p>`;
             return;
         }
-
         try {
             if (await db.checkIfSigned(currentDocumentId)) {
                 showView('success-step');
                 return;
             }
             const { data: { session } } = await db.supabase.auth.getSession();
-            if (session) {
-                await setupSigningView(session.user);
-            } else {
-                showView('login-step');
-            }
+            if (session) await setupSigningView(session.user);
+            else showView('login-step');
         } catch (error) {
             loadingView.innerHTML = `<p class="text-red-500 font-bold">ERRO: Não foi possível verificar o documento.</p>`;
-            console.error(error);
         }
     }
     
@@ -135,20 +118,17 @@ document.addEventListener('DOMContentLoaded', () => {
         userEmailInput.value = user.email || '';
         showView('signing-step');
         setTimeout(resizeCanvas, 100);
-
         try {
             const doc = await db.getDocumentForSigning(currentDocumentId);
             const publicUrl = db.getPublicUrl(doc.caminho_arquivo_storage);
             await loadAndRenderPdf(publicUrl);
         } catch (error) {
-            pdfViewer.innerHTML = '<p class="text-red-500 p-4">Erro: Não foi possível carregar o documento para assinatura.</p>';
-            console.error(error);
+            pdfViewer.innerHTML = '<p class="text-red-500 p-4">Erro: Não foi possível carregar o documento para assinatura.</p>`;
         }
     }
     
     async function handleSignatureSubmit(event) {
         event.preventDefault();
-        
         const cpfCnpjValue = userCpfInput.value.replace(/\D/g, '');
         if (cpfCnpjValue.length !== 11 && cpfCnpjValue.length !== 14) {
             showFeedback('CPF ou CNPJ inválido. Verifique o número de dígitos.');
@@ -164,11 +144,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const signatureImage = signaturePad.toDataURL('image/png');
+            const dataHoraLocalFormatada = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
             
-            const dataHoraLocalFormatada = new Date().toLocaleString('pt-BR', {
-                timeZone: 'America/Sao_Paulo'
-            });
-            
+            // ATUALIZADO AQUI para incluir o ID do usuário
             await db.submitSignature({
                 documento_id: currentDocumentId,
                 nome_signatario: currentUser.user_metadata.full_name,
@@ -176,26 +154,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 cpf_cnpj_signatario: userCpfInput.value,
                 imagem_assinatura_base64: signatureImage,
                 data_hora_local: dataHoraLocalFormatada,
+                google_user_id: currentUser.id, // <-- NOVO DADO ENVIADO
             });
 
             showView('success-step');
 
         } catch (error) {
             showFeedback(`Erro ao salvar assinatura: ${error.message}`);
-            console.error(error);
         } finally {
             submitSignatureBtn.disabled = false;
             submitSignatureBtn.textContent = 'Assinar e Finalizar';
         }
     }
 
-    // --- Event Listeners ---
     googleLoginBtn.addEventListener('click', async () => {
-        try {
-            await db.signInWithGoogle();
-        } catch (error) {
-            loginError.textContent = `Erro no login: ${error.message}`;
-        }
+        try { await db.signInWithGoogle() } 
+        catch (error) { loginError.textContent = `Erro no login: ${error.message}` }
     });
 
     zoomInBtn.addEventListener('click', () => {
@@ -215,9 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', resizeCanvas);
     
     db.supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-            setupSigningView(session.user);
-        }
+        if (event === 'SIGNED_IN' && session) setupSigningView(session.user);
     });
     
     initializePage();
