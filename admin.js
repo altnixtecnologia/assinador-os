@@ -65,11 +65,11 @@ async function processarArquivoPDF(file) {
             const osMatch = fullText.match(osRegex);
             const foneMatch = fullText.match(foneRegex);
 
-            let dadosAdicionais = null;
+            let statusOS = null;
             const palavrasChave = ["Concluído", "Entregue", "Garantia", "Não autorizou"];
             for (const palavra of palavrasChave) {
                 if (fullText.toLowerCase().includes(palavra.toLowerCase())) {
-                    dadosAdicionais = palavra;
+                    statusOS = palavra;
                     break;
                 }
             }
@@ -78,7 +78,7 @@ async function processarArquivoPDF(file) {
             if (foneMatch) clienteTelefoneInput.value = foneMatch[1].trim().replace(/\D/g, '');
             
             uploadForm.dataset.extractedOs = osMatch ? osMatch[1].trim() : '';
-            uploadForm.dataset.extractedData = dadosAdicionais || '';
+            uploadForm.dataset.extractedStatusOs = statusOS || '';
 
             showFeedback('Dados extraídos do PDF! Verifique e prossiga.', 'success');
         } catch (error) {
@@ -105,7 +105,7 @@ async function carregarDocumentos() {
     let query = supabase
         .from('documentos')
         .select(`
-            id, created_at, status, cliente_email, nome_cliente, id_cliente, n_os, dados_adicionais,
+            id, created_at, status, cliente_email, nome_cliente, id_cliente, n_os, status_os,
             caminho_arquivo_storage, caminho_arquivo_assinado,
             assinaturas ( nome_signatario, cpf_cnpj_signatario, email_signatario, assinado_em, imagem_assinatura_base64 )
         `, { count: 'exact' })
@@ -116,13 +116,12 @@ async function carregarDocumentos() {
         query = query.eq('status', currentStatusFilter);
     }
     if (currentSearchTerm) {
-        query = query.or(`caminho_arquivo_storage.ilike.%${currentSearchTerm}%,cliente_email.ilike.%${currentSearchTerm}%,nome_cliente.ilike.%${currentSearchTerm}%,n_os.ilike.%${currentSearchTerm}%,assinaturas.nome_signatario.ilike.%${currentSearchTerm}%`);
+        query = query.or(`caminho_arquivo_storage.ilike.%${currentSearchTerm}%,cliente_email.ilike.%${currentSearchTerm}%,nome_cliente.ilike.%${currentSearchTerm}%,n_os.ilike.%${currentSearchTerm}%,status_os.ilike.%${currentSearchTerm}%,assinaturas.nome_signatario.ilike.%${currentSearchTerm}%`);
     }
 
     const { data, error, count } = await query;
 
     listLoadingFeedback.style.display = 'none';
-
     if (error) {
         documentList.innerHTML = `<p class="text-center text-red-500 py-8">Erro ao carregar documentos: ${error.message}</p>`;
         return;
@@ -145,8 +144,8 @@ function renderizarLista(docs) {
         const assinatura = doc.assinaturas && doc.assinaturas.length > 0 ? doc.assinaturas[0] : null;
         const card = document.createElement('div');
         card.className = 'border rounded-lg p-4 bg-gray-50 shadow-sm';
-        const statusClass = doc.status === 'assinado' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
-        const statusText = doc.status === 'assinado' ? 'Assinado ✅' : 'Pendente ⏳';
+        const statusAssinaturaClass = doc.status === 'assinado' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
+        const statusAssinaturaText = doc.status === 'assinado' ? 'Assinado ✅' : 'Pendente ⏳';
         const dataEnvio = new Date(doc.created_at).toLocaleDateString('pt-BR');
         const nomeArquivoOriginal = doc.caminho_arquivo_storage.split('-').slice(1).join('-') || doc.caminho_arquivo_storage;
 
@@ -157,12 +156,12 @@ function renderizarLista(docs) {
                     <p class="text-sm text-gray-500 truncate">
                         ${doc.nome_cliente ? `Cliente: ${doc.nome_cliente}` : (assinatura ? `Assinado por: ${assinatura.nome_signatario}` : '')}
                     </p>
-                    ${doc.n_os ? `<p class="text-sm text-gray-500">OS N°: ${doc.n_os}</p>` : ''}
+                    ${doc.n_os ? `<p class="text-sm text-gray-500 font-semibold">OS N°: ${doc.n_os}</p>` : ''}
                 </div>
                 <div class="flex-shrink-0 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                    <div class="flex flex-col items-start sm:items-end">
-                        <span class="text-xs font-medium px-2.5 py-1 rounded-full ${statusClass}">${statusText}</span>
-                        ${doc.dados_adicionais ? `<span class="text-xs font-semibold mt-1 text-blue-800">${doc.dados_adicionais}</span>` : ''}
+                    <div class="flex flex-col items-start sm:items-end text-right">
+                        <span class="text-xs font-medium px-2.5 py-1 rounded-full ${statusAssinaturaClass}" title="Status da Assinatura">${statusAssinaturaText}</span>
+                        ${doc.status_os ? `<span class="text-xs font-semibold mt-1 text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full" title="Status do Serviço">${doc.status_os}</span>` : ''}
                     </div>
                     <span class="text-sm text-gray-600">Enviado em: ${dataEnvio}</span>
                     <div class="flex gap-2 flex-wrap">
@@ -179,9 +178,7 @@ function renderizarLista(docs) {
 }
 
 async function excluirDocumento(docId) {
-    if (!confirm('Você tem certeza que deseja excluir este documento e sua assinatura? Esta ação não pode ser desfeita.')) {
-        return;
-    }
+    if (!confirm('Você tem certeza que deseja excluir este documento e sua assinatura? Esta ação não pode ser desfeita.')) return;
     try {
         await supabase.from('assinaturas').delete().eq('documento_id', docId);
         await supabase.from('documentos').delete().eq('id', docId);
@@ -197,8 +194,8 @@ function atualizarControlesPaginacao() {
     pageInfo.textContent = totalDocuments > 0 ? `Página ${currentPage + 1} de ${totalPages || 1}` : 'Nenhum resultado';
     prevPageBtn.disabled = currentPage === 0;
     prevPageBtn.classList.toggle('btn-disabled', currentPage === 0);
-    nextPageBtn.disabled = currentPage + 1 >= totalPages;
-    nextPageBtn.classList.toggle('btn-disabled', currentPage + 1 >= totalPages);
+    nextPageBtn.disabled = (currentPage + 1) >= totalPages;
+    nextPageBtn.classList.toggle('btn-disabled', (currentPage + 1) >= totalPages);
 }
 
 function abrirModalDetalhes(doc) {
@@ -208,7 +205,7 @@ function abrirModalDetalhes(doc) {
         <p><strong>Nome Original:</strong> ${doc.caminho_arquivo_storage.split('-').slice(1).join('-')}</p>
         <p><strong>Enviado em:</strong> ${new Date(doc.created_at).toLocaleString('pt-BR')}</p>
         <p><strong>Nº da O.S.:</strong> ${doc.n_os || 'Não informado'}</p>
-        <p><strong>Dados Adicionais:</strong> ${doc.dados_adicionais || 'Nenhum'}</p>
+        <p><strong>Status do Serviço:</strong> ${doc.status_os || 'Não informado'}</p>
         <p><strong>Cliente (manual):</strong> ${doc.nome_cliente || 'Não informado'}</p>
         <p><strong>ID Cliente (manual):</strong> ${doc.id_cliente || 'Não informado'}</p>
         <hr class="my-4">
@@ -264,7 +261,7 @@ uploadForm.addEventListener('submit', async (event) => {
     const telefoneCliente = clienteTelefoneInput.value || null;
     const emailCliente = clienteEmailInput.value || null;
     const n_os = uploadForm.dataset.extractedOs || null;
-    const dados_adicionais = uploadForm.dataset.extractedData || null;
+    const status_os = uploadForm.dataset.extractedStatusOs || null;
 
     if (!file) { showFeedback('Por favor, selecione um arquivo PDF.', 'error'); return; }
     actionsContainer.classList.add('hidden');
@@ -281,7 +278,7 @@ uploadForm.addEventListener('submit', async (event) => {
             telefone_cliente: telefoneCliente,
             cliente_email: emailCliente,
             n_os: n_os,
-            dados_adicionais: dados_adicionais
+            status_os: status_os
         }).select('id').single();
         if(insertError) throw insertError;
 
@@ -292,10 +289,9 @@ uploadForm.addEventListener('submit', async (event) => {
         whatsappContainer.style.display = telefoneCliente ? 'block' : 'none';
         showFeedback('Link gerado!', 'success');
         
-        // Limpa apenas o input do arquivo, mantém os dados do cliente
-        osFileInput.value = '';
+        uploadForm.reset();
         uploadForm.dataset.extractedOs = '';
-        uploadForm.dataset.extractedData = '';
+        uploadForm.dataset.extractedStatusOs = '';
 
         carregarDocumentos();
     } catch (error) {
