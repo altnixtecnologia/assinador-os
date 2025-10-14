@@ -146,7 +146,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const signatureImage = signaturePad.toDataURL('image/png');
             const dataHoraLocalFormatada = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
             
-            // ATUALIZADO AQUI para incluir o ID do usuário
             await db.submitSignature({
                 documento_id: currentDocumentId,
                 nome_signatario: currentUser.user_metadata.full_name,
@@ -154,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 cpf_cnpj_signatario: userCpfInput.value,
                 imagem_assinatura_base64: signatureImage,
                 data_hora_local: dataHoraLocalFormatada,
-                google_user_id: currentUser.id, // <-- NOVO DADO ENVIADO
+                google_user_id: currentUser.id,
             });
 
             showView('success-step');
@@ -168,8 +167,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     googleLoginBtn.addEventListener('click', async () => {
-        try { await db.signInWithGoogle() } 
-        catch (error) { loginError.textContent = `Erro no login: ${error.message}` }
+        try {
+            await db.signInWithGoogle();
+        } catch (error) {
+            loginError.textContent = `Erro no login: ${error.message}`;
+        }
     });
 
     zoomInBtn.addEventListener('click', () => {
@@ -189,7 +191,9 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', resizeCanvas);
     
     db.supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_IN' && session) setupSigningView(session.user);
+        if (event === 'SIGNED_IN' && session) {
+            setupSigningView(session.user);
+        }
     });
     
     initializePage();
