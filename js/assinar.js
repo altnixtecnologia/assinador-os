@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentUser = null;
     let pdfDoc = null; 
     let pdfScale = 1.0; 
-    let isRendering = false; // Variável de controle para evitar renderização duplicada
+    let isRendering = false;
 
     // --- Funções de UI ---
     function showView(viewToShow) {
@@ -66,7 +66,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- LÓGICA DE RENDERIZAÇÃO E ZOOM DO PDF ---
     async function loadAndRenderPdf(url) {
-        // ATUALIZADO: Previne renderização duplicada
         if (isRendering) return;
         isRendering = true;
 
@@ -164,10 +163,10 @@ document.addEventListener('DOMContentLoaded', () => {
         submitSignatureBtn.textContent = 'Enviando...';
 
         try {
-            const signatureImage = pad.toDataURL('image/png');
-            
             // ### CORREÇÃO APLICADA AQUI ###
-            // Chamando a nova e correta função 'submitSignature'
+            // Usando a variável correta 'signaturePad' em vez de 'pad'
+            const signatureImage = signaturePad.toDataURL('image/png');
+            
             await db.submitSignature({
                 documento_id: currentDocumentId,
                 nome_signatario: currentUser.user_metadata.full_name,
