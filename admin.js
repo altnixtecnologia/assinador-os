@@ -269,20 +269,13 @@ document.addEventListener('DOMContentLoaded', () => {
         feedbackMessage.className = `mt-4 text-center text-sm ${colorClasses[type] || 'text-gray-600'}`;
     }
 
-    function carregarDocumentos() { /* (lógica de consulta vai aqui) */ }
-    // ... (e as outras funções da consulta)
+    // --- Lógica de Consulta ---
+    // (O código completo para carregar, renderizar, excluir, etc., vai aqui)
 
     // --- Event Listeners ---
     osFileInput.addEventListener('change', handleFileSelect);
     cancelPreparationBtn.addEventListener('click', resetPreparationView);
-    showConsultationBtn.addEventListener('click', () => {
-        uploadInitialView.style.display = 'none';
-        preparationView.style.display = 'none';
-        consultationView.style.display = 'block';
-        carregarDocumentos();
-    });
-    backToInitialViewBtn.addEventListener('click', resetPreparationView);
-
+    
     uploadForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         if (!rects.tecnico || !rects.cliente) {
@@ -353,9 +346,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    copiarBtn.addEventListener('click', () => { /* ... */ });
-    whatsappBtn.addEventListener('click', () => { /* ... */ });
+    copiarBtn.addEventListener('click', () => {
+        linkInput.select();
+        navigator.clipboard.writeText(linkInput.value);
+        copiarBtn.textContent = 'Copiado!';
+        setTimeout(() => { copiarBtn.textContent = 'Copiar'; }, 2000);
+    });
+
+    whatsappBtn.addEventListener('click', () => {
+        const telefone = clienteTelefoneInput.value.replace(/\D/g, '');
+        const linkAssinatura = linkInput.value;
+        const mensagem = encodeURIComponent(`Olá! Por favor, assine a Ordem de Serviço acessando o link: ${linkAssinatura}`);
+        window.open(`https://wa.me/${telefone}?text=${mensagem}`, '_blank');
+    });
+
     window.addEventListener('resize', renderPdfPreview);
 
-    // O restante dos listeners da consulta precisam ser definidos aqui
+    showConsultationBtn.addEventListener('click', () => {
+        uploadInitialView.style.display = 'none';
+        preparationView.style.display = 'none';
+        consultationView.style.display = 'block';
+        carregarDocumentos();
+    });
+
+    backToInitialViewBtn.addEventListener('click', resetPreparationView);
 });
