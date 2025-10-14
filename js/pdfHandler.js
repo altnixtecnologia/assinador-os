@@ -1,20 +1,9 @@
 // js/pdfHandler.js
 
-/**
- * Módulo para manipulação de arquivos PDF.
- * Contém a lógica de extração de texto e dados usando a biblioteca pdf.js.
- */
-
-// Define o worker para a pdf.js. Deve ser chamado uma vez no script principal.
 export function setupPdfWorker() {
     pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js`;
 }
 
-/**
- * Extrai nome, telefone, email e N° da OS do texto de um PDF.
- * @param {File} file - O arquivo PDF.
- * @returns {Promise<object>} - Um objeto com os dados extraídos.
- */
 export async function extractDataFromPdf(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -26,35 +15,20 @@ export async function extractDataFromPdf(file) {
                 for (let i = 1; i <= pdfDoc.numPages; i++) {
                     const page = await pdfDoc.getPage(i);
                     const textContent = await page.getTextContent();
-                    // Adiciona um espaço para garantir a separação entre itens de texto
                     fullText += textContent.items.map(item => item.str).join(" ") + "\n";
                 }
-                
-                // DICA DE DEBUG: Se a extração falhar, remova o comentário da linha abaixo
-                // para ver o texto completo que o sistema está lendo do PDF.
-                // console.log("Texto extraído do PDF:", fullText);
 
                 // --- Regex Melhoradas ---
-                // Pega tudo na linha após "Cliente:"
                 const nomeRegex = /Cliente\s*:\s*(.*)/i;
                 const osRegex = /Ordem de serviço N°\s*(\d+)/i;
-                const celularRegex = /Celular\s*:\s*(.*)/i;
-                const foneRegex = /(?:Telefone|Fone)\s*:\s*(.*)/i;
-                // Procura por um email em qualquer lugar após "Email:" ou "E-mail:"
+                // ATUALIZADO AQUI: Regex mais específica para telefone
+                const foneRegex = /(?:Celular|Telefone|Fone)\s*:\s*.*?(\(?\d{2}\)?\s*\d{4,5}-?\d{4})/i;
                 const emailRegex = /(?:Email|E-mail)\s*:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
 
                 const nomeMatch = fullText.match(nomeRegex);
                 const osMatch = fullText.match(osRegex);
-                const celularMatch = fullText.match(celularRegex);
                 const foneMatch = fullText.match(foneRegex);
                 const emailMatch = fullText.match(emailRegex);
-
-                let telefoneFinal = '';
-                if (celularMatch && celularMatch[1]) {
-                    telefoneFinal = celularMatch[1].trim().replace(/\D/g, '');
-                } else if (foneMatch && foneMatch[1]) {
-                    telefoneFinal = foneMatch[1].trim().replace(/\D/g, '');
-                }
 
                 let statusOS = null;
                 const palavrasChave = ["Concluído", "Entregue", "Garantia", "Não autorizou"];
@@ -67,7 +41,7 @@ export async function extractDataFromPdf(file) {
 
                 resolve({
                     nome: nomeMatch ? nomeMatch[1].trim() : '',
-                    telefone: telefoneFinal,
+                    telefone: foneMatch ? foneMatch[1].replace(/\D/g, '') : '',
                     email: emailMatch ? emailMatch[1].trim() : '',
                     n_os: osMatch ? osMatch[1].trim() : '',
                     status_os: statusOS || ''
