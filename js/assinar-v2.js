@@ -123,7 +123,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const publicUrl = db.getPublicUrl(doc.caminho_arquivo_storage);
             await loadAndRenderPdf(publicUrl);
         } catch (error) {
-            pdfViewer.innerHTML = '<p class="text-red-500 p-4">Erro: Não foi possível carregar o documento para assinatura.</p>`;
+            // LINHA CORRIGIDA AQUI
+            pdfViewer.innerHTML = '<p class="text-red-500 p-4">Erro: Não foi possível carregar o documento para assinatura.</p>';
         }
     }
     
