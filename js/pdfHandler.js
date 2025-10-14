@@ -18,17 +18,22 @@ export async function extractDataFromPdf(file) {
                     fullText += textContent.items.map(item => item.str).join(" ") + "\n";
                 }
 
-                // #####################################################################
-                // ### LINHA DE DEPURAÇÃO ATIVADA, CONFORME SOLICITADO ###
-                // #####################################################################
-                console.log("Texto extraído do PDF:", fullText);
+                // Linha de depuração que usamos. Pode ser removida ou comentada.
+                // console.log("Texto extraído do PDF:", fullText);
                 
+                // --- Regex AJUSTADAS PARA O SEU FORMATO DE PDF ---
+                
+                // Regra 1: Encontra "Cliente", depois captura tudo até encontrar um CPF (xxx.xxx.xxx-xx)
+                const nomeRegex = /Cliente\s+([\s\S]+?)\s+\d{3}\.\d{3}\.\d{3}-\d{2}/i;
+                
+                // Regra 2: Encontra "Ordem de serviço Nº"
+                const osRegex = /Ordem de serviço N°\s*(\d+)/i;
 
-                // --- Regex Melhoradas (Versão Final Mais Robusta) ---
-                const nomeRegex = /Cliente\s*:\s*([\s\S]+?)(?:Endereço:|CPF\/CNPJ:|Fone:|Celular:|Email:|Nº:)/i;
-                const osRegex = /(?:Ordem de serviço|O\.S\.?)\s*N°?\s*(\d+)/i;
+                // Regra 3: Encontra um padrão de telefone com DDD
                 const foneRegex = /(?:Celular|Telefone|Fone)\s*:\s*.*?(\(?\d{2}\)?\s*\d{4,5}-?\d{4})/i;
-                const emailRegex = /(?:Email|E-mail)\s*:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
+                
+                // Regra 4: Encontra o primeiro padrão de email válido no texto
+                const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/;
 
                 const nomeMatch = fullText.match(nomeRegex);
                 const osMatch = fullText.match(osRegex);
