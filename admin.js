@@ -114,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
             pages.push(page);
             const viewport = page.getViewport({ scale: 1.0 });
             const scaledHeight = (containerWidth / viewport.width) * viewport.height;
-            pageDimensions.push({ width: viewport.width, height: viewport.height, scaledHeight: scaledHeight, rotation: page.rotate });
+            pageDimensions.push({ num: i, width: viewport.width, height: viewport.height, scaledHeight: scaledHeight, rotation: page.rotate });
             totalHeight += scaledHeight;
         }
         bgCanvas.width = drawCanvas.width = containerWidth;
@@ -269,8 +269,8 @@ document.addEventListener('DOMContentLoaded', () => {
         feedbackMessage.className = `mt-4 text-center text-sm ${colorClasses[type] || 'text-gray-600'}`;
     }
 
-    // --- Lógica de Consulta ---
-    // (O código completo para carregar, renderizar, excluir, etc., vai aqui)
+    function carregarDocumentos() { /* (lógica de consulta vai aqui) */ }
+    // ... (e as outras funções da consulta)
 
     // --- Event Listeners ---
     osFileInput.addEventListener('change', handleFileSelect);
@@ -290,7 +290,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        const firstPage = pageDimensions[0];
         const canvasWidth = document.getElementById('pdf-background-canvas').width;
         
         const convertCoords = (rect) => {
@@ -358,5 +357,5 @@ document.addEventListener('DOMContentLoaded', () => {
     whatsappBtn.addEventListener('click', () => { /* ... */ });
     window.addEventListener('resize', renderPdfPreview);
 
-    // O restante dos listeners (da consulta) precisa ser definido aqui
+    // O restante dos listeners da consulta precisam ser definidos aqui
 });
