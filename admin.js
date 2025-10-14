@@ -4,7 +4,9 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const SITE_BASE_URL = 'https://altnixtecnologia.github.io/assinador-os';
 const supabase = self.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// O código só vai rodar quando toda a estrutura do HTML estiver pronta.
 document.addEventListener('DOMContentLoaded', () => {
+    
     // --- Elementos da UI ---
     const osFileInput = document.getElementById('os-file');
     const uploadInitialView = document.getElementById('upload-initial-view');
@@ -82,6 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pdfPreviewWrapper.appendChild(bgCanvas);
         pdfPreviewWrapper.appendChild(drawCanvas);
         const bgCtx = bgCanvas.getContext('2d');
+
         const pages = [];
         for (let i = 1; i <= pdfDoc.numPages; i++) {
             const page = await pdfDoc.getPage(i);
@@ -91,12 +94,14 @@ document.addEventListener('DOMContentLoaded', () => {
             pageDimensions.push({ width: viewport.width, height: viewport.height, scaledHeight: scaledHeight, rotation: page.rotate });
             totalHeight += scaledHeight;
         }
+        
         bgCanvas.width = drawCanvas.width = containerWidth;
         bgCanvas.height = drawCanvas.height = totalHeight;
         drawCanvas.style.position = 'absolute';
         drawCanvas.style.top = '0';
         drawCanvas.style.left = '0';
         drawCanvas.style.cursor = 'crosshair';
+
         let currentY = 0;
         for (let i = 0; i < pages.length; i++) {
             const page = pages[i];
@@ -109,6 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await page.render(renderContext).promise;
             currentY += scaledViewport.height;
         }
+
         drawCanvas.addEventListener('mousedown', startDrawing);
         drawCanvas.addEventListener('mousemove', draw);
         drawCanvas.addEventListener('mouseup', stopDrawing);
@@ -116,14 +122,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startDrawing(event) {
+        const drawCanvas = document.getElementById('pdf-drawing-canvas');
         isDrawing = true;
-        startCoords = getMousePos(event.target, event);
+        startCoords = getMousePos(drawCanvas, event);
     }
 
     function draw(event) {
         if (!isDrawing) return;
         redrawAll();
-        const currentCoords = getMousePos(event.target, event);
+        const drawCanvas = document.getElementById('pdf-drawing-canvas');
+        const currentCoords = getMousePos(drawCanvas, event);
         const width = currentCoords.x - startCoords.x;
         const height = currentCoords.y - startCoords.y;
         const tempRect = { x: startCoords.x, y: startCoords.y, width, height };
@@ -134,7 +142,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function stopDrawing(event) {
         if (!isDrawing) return;
         isDrawing = false;
-        const endCoords = getMousePos(event.target, event);
+        const drawCanvas = document.getElementById('pdf-drawing-canvas');
+        const endCoords = getMousePos(drawCanvas, event);
         const rect = {
             x: Math.min(startCoords.x, endCoords.x),
             y: Math.min(startCoords.y, endCoords.y),
@@ -223,6 +232,11 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsArrayBuffer(file);
     }
 
+    function sanitizarNomeArquivo(nome) {
+        const nomeSemAcentos = nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        return nomeSemAcentos.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    }
+
     function setLoading(isLoading) {
         if (isLoading) {
             submitButton.disabled = true;
@@ -246,7 +260,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Listeners ---
     osFileInput.addEventListener('change', handleFileSelect);
     cancelPreparationBtn.addEventListener('click', resetPreparationView);
-    
+    window.addEventListener('resize', renderPdfPreview);
+
     uploadForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         if (!rects.tecnico || !rects.cliente) {
@@ -255,8 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const firstPage = pageDimensions[0];
-        const canvasWidth = pdfPreviewWrapper.clientWidth;
-        const viewportScale = canvasWidth / firstPage.width;
+        const canvasWidth = document.getElementById('pdf-background-canvas').width;
         
         const convertCoords = (rect) => {
             if (!rect) return null;
@@ -272,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if(pageNum === 0) pageNum = pageDimensions.length;
 
             const pageDim = pageDimensions[pageNum-1];
-            const scale = pageDim.width / (canvasWidth);
+            const scale = pageDim.width / canvasWidth;
             
             return {
                 page: pageNum, 
@@ -290,6 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const emailCliente = clienteEmailInput.value || null;
         const n_os = uploadForm.dataset.extractedOs || null;
         const status_os = uploadForm.dataset.extractedStatusOs || null;
+        
         setLoading(true);
         try {
             const fileName = `${Date.now()}-${sanitizarNomeArquivo(currentFile.name)}`;
@@ -306,13 +321,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 cliente_assinatura_coords: clienteCoords
             }).select('id').single();
             if(insertError) throw insertError;
+
             const documentoId = insertData.id;
             const linkDeAssinatura = `${SITE_BASE_URL}/assinar.html?id=${documentoId}`;
             linkInput.value = linkDeAssinatura;
             actionsContainer.classList.remove('hidden');
             whatsappContainer.style.display = telefoneCliente ? 'block' : 'none';
             showFeedback('Link gerado!', 'success');
-            // NÃO reseta a view, para permitir copiar/enviar
+            // A view de preparação permanece para copiar/enviar o link
         } catch (error) {
             console.error('Erro no processo:', error);
             showFeedback(`Erro: ${error.message}`, 'error');
@@ -334,6 +350,4 @@ document.addEventListener('DOMContentLoaded', () => {
         const mensagem = encodeURIComponent(`Olá! Por favor, assine a Ordem de Serviço acessando o link: ${linkAssinatura}`);
         window.open(`https://wa.me/${telefone}?text=${mensagem}`, '_blank');
     });
-
-    window.addEventListener('resize', renderPdfPreview);
 });
