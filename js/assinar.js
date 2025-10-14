@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentUser = null;
     let pdfDoc = null; 
     let pdfScale = 1.0; 
+    let isRendering = false; // Variável de controle para evitar renderização duplicada
 
     // --- Funções de UI ---
     function showView(viewToShow) {
@@ -65,6 +66,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- LÓGICA DE RENDERIZAÇÃO E ZOOM DO PDF ---
     async function loadAndRenderPdf(url) {
+        // ATUALIZADO: Previne renderização duplicada
+        if (isRendering) return;
+        isRendering = true;
+
         pdfViewer.innerHTML = '<div class="flex justify-center items-center h-full"><div class="loader"></div></div>';
         try {
             pdfDoc = await pdfjsLib.getDocument(url).promise;
@@ -78,6 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             showFeedback('Não foi possível carregar o documento PDF.');
             console.error('Erro ao carregar PDF:', error);
+        } finally {
+            isRendering = false;
         }
     }
     
@@ -157,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
         submitSignatureBtn.textContent = 'Enviando...';
 
         try {
-            const signatureImage = signaturePad.toDataURL('image/png');
+            const signatureImage = pad.toDataURL('image/png');
             
             // ### CORREÇÃO APLICADA AQUI ###
             // Chamando a nova e correta função 'submitSignature'
