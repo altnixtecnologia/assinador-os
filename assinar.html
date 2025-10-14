@@ -19,6 +19,8 @@
         <p class="mt-4 text-gray-600">Carregando documento...</p>
     </div>
 
+    <div id="feedback-container" class="fixed top-5 right-5 z-50"></div>
+
     <div id="main-content" class="container mx-auto p-4 max-w-4xl hidden">
         
         <div id="login-step" class="text-center bg-white p-8 rounded-lg shadow-lg">
@@ -70,9 +72,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
-    <script>
-      // Força o navegador a sempre baixar a versão mais recente do assinar.js
-      document.write(`<script src="assinar.js?v=${new Date().getTime()}"><\/script>`);
-    </script>
+    <script type="module" src="js/assinar.js"></script>
 </body>
 </html>
