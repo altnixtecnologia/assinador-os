@@ -77,13 +77,16 @@ async function processarArquivoPDF(file) {
             if (nomeMatch) clienteNomeInput.value = nomeMatch[1].trim();
             if (foneMatch) clienteTelefoneInput.value = foneMatch[1].trim().replace(/\D/g, '');
             
+            // Não preenchemos o Nº de Cadastro (id_cliente)
+            clienteIdInput.value = ''; 
+            
             uploadForm.dataset.extractedOs = osMatch ? osMatch[1].trim() : '';
             uploadForm.dataset.extractedStatusOs = statusOS || '';
 
-            showFeedback('Dados extraídos do PDF! Verifique e prossiga.', 'success');
+            showFeedback('Dados extraídos! Verifique e prossiga.', 'success');
         } catch (error) {
             console.error("Erro ao processar o PDF no cliente:", error);
-            showFeedback('Não foi possível ler os dados do PDF. Preencha manualmente.', 'error');
+            showFeedback('Não foi possível ler os dados. Preencha manualmente.', 'error');
         }
     };
     reader.readAsArrayBuffer(file);
@@ -123,7 +126,7 @@ async function carregarDocumentos() {
 
     listLoadingFeedback.style.display = 'none';
     if (error) {
-        documentList.innerHTML = `<p class="text-center text-red-500 py-8">Erro ao carregar documentos: ${error.message}</p>`;
+        documentList.innerHTML = `<p class="text-center text-red-500 py-8">Erro ao carregar docs: ${error.message}</p>`;
         return;
     }
 
@@ -139,7 +142,6 @@ function renderizarLista(docs) {
         documentList.innerHTML = '<p class="text-center text-gray-500 py-8">Nenhum documento encontrado.</p>';
         return;
     }
-
     docs.forEach(doc => {
         const assinatura = doc.assinaturas && doc.assinaturas.length > 0 ? doc.assinaturas[0] : null;
         const card = document.createElement('div');
@@ -342,7 +344,6 @@ statusFilterButtons.addEventListener('click', (e) => {
         currentStatusFilter = target.dataset.status;
         statusFilterButtons.querySelectorAll('button').forEach(btn => {
             btn.classList.remove('bg-blue-600', 'text-white');
-            btn.classList.add('bg-white', 'text-gray-700');
         });
         target.classList.add('bg-blue-600', 'text-white');
         carregarDocumentos();
