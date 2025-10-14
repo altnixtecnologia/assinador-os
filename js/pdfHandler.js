@@ -26,15 +26,22 @@ export async function extractDataFromPdf(file) {
                 for (let i = 1; i <= pdfDoc.numPages; i++) {
                     const page = await pdfDoc.getPage(i);
                     const textContent = await page.getTextContent();
+                    // Adiciona um espaço para garantir a separação entre itens de texto
                     fullText += textContent.items.map(item => item.str).join(" ") + "\n";
                 }
+                
+                // DICA DE DEBUG: Se a extração falhar, remova o comentário da linha abaixo
+                // para ver o texto completo que o sistema está lendo do PDF.
+                // console.log("Texto extraído do PDF:", fullText);
 
                 // --- Regex Melhoradas ---
-                const nomeRegex = /Cliente\s*:\s*([\s\S]+?)(?:Endereço:|CPF\/CNPJ:|Fone:|Celular:|Email:)/i;
+                // Pega tudo na linha após "Cliente:"
+                const nomeRegex = /Cliente\s*:\s*(.*)/i;
                 const osRegex = /Ordem de serviço N°\s*(\d+)/i;
-                const celularRegex = /Celular\s*:\s*([()\d\s-]+)/i;
-                const foneRegex = /(?:Telefone|Fone)\s*:\s*([()\d\s-]+)/i;
-                const emailRegex = /(?:Email|E-mail)\s*:\s*([a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
+                const celularRegex = /Celular\s*:\s*(.*)/i;
+                const foneRegex = /(?:Telefone|Fone)\s*:\s*(.*)/i;
+                // Procura por um email em qualquer lugar após "Email:" ou "E-mail:"
+                const emailRegex = /(?:Email|E-mail)\s*:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
 
                 const nomeMatch = fullText.match(nomeRegex);
                 const osMatch = fullText.match(osRegex);
@@ -59,7 +66,7 @@ export async function extractDataFromPdf(file) {
                 }
 
                 resolve({
-                    nome: nomeMatch ? nomeMatch[1].replace(/\s+/g, ' ').trim() : '',
+                    nome: nomeMatch ? nomeMatch[1].trim() : '',
                     telefone: telefoneFinal,
                     email: emailMatch ? emailMatch[1].trim() : '',
                     n_os: osMatch ? osMatch[1].trim() : '',
