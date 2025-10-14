@@ -9,6 +9,7 @@
         .modal { display: none; }
         .modal.active { display: flex; }
         .btn-disabled { cursor: not-allowed; opacity: 0.5; }
+        /* Adicionado para limitar a altura e permitir rolagem */
         .pdf-preview-container { max-height: 75vh; overflow-y: auto; }
         #pdf-drawing-canvas { position: absolute; top: 0; left: 0; cursor: crosshair; }
     </style>
@@ -62,7 +63,21 @@
                     </form>
                     <div id="feedback-message" class="mt-4 text-center text-sm"></div>
                     <div id="actions-container" class="mt-6 hidden space-y-4">
-                         </div>
+                         <div id="link-gerado-container">
+                            <label class="block text-sm font-medium text-gray-700">Link Gerado com Sucesso!</label>
+                            <div class="mt-1 flex rounded-md shadow-sm">
+                                <input type="text" id="link-gerado-input" readonly class="flex-1 block w-full rounded-none rounded-l-md sm:text-sm border-gray-300 bg-gray-50 p-2">
+                                <button type="button" id="copiar-link-btn" class="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-700 text-sm hover:bg-gray-100">
+                                    Copiar
+                                </button>
+                            </div>
+                        </div>
+                        <div id="whatsapp-container" class="hidden">
+                             <button type="button" id="whatsapp-btn" class="mt-1 w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+                                Enviar via WhatsApp
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
