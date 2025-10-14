@@ -23,7 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const copiarBtn = document.getElementById('copiar-link-btn');
     const whatsappBtn = document.getElementById('whatsapp-btn');
     const whatsappContainer = document.getElementById('whatsapp-container');
-    const consultationSection = document.getElementById('consultation-section');
 
     // --- Estado do Aplicativo ---
     let pdfDoc = null;
@@ -33,9 +32,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let startCoords = { x: 0, y: 0 };
     let rects = { tecnico: null, cliente: null };
     let pageDimensions = [];
-    
-    // --- Funções da Ferramenta de Marcação ---
-    
+
+    // --- Funções ---
+
     function resetPreparationView() {
         preparationView.style.display = 'none';
         uploadInitialView.style.display = 'block';
@@ -43,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pdfDoc = null;
         currentFile = null;
         rects = { tecnico: null, cliente: null };
-        pdfPreviewWrapper.innerHTML = ''; // Limpa os canvases
+        pdfPreviewWrapper.innerHTML = '';
     }
 
     async function handleFileSelect(event) {
@@ -76,7 +75,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const containerWidth = pdfPreviewWrapper.clientWidth;
         let totalHeight = 0;
         pageDimensions = [];
-
         const bgCanvas = document.createElement('canvas');
         bgCanvas.id = 'pdf-background-canvas';
         const drawCanvas = document.createElement('canvas');
@@ -84,7 +82,6 @@ document.addEventListener('DOMContentLoaded', () => {
         pdfPreviewWrapper.appendChild(bgCanvas);
         pdfPreviewWrapper.appendChild(drawCanvas);
         const bgCtx = bgCanvas.getContext('2d');
-
         const pages = [];
         for (let i = 1; i <= pdfDoc.numPages; i++) {
             const page = await pdfDoc.getPage(i);
@@ -94,14 +91,12 @@ document.addEventListener('DOMContentLoaded', () => {
             pageDimensions.push({ width: viewport.width, height: viewport.height, scaledHeight: scaledHeight, rotation: page.rotate });
             totalHeight += scaledHeight;
         }
-        
         bgCanvas.width = drawCanvas.width = containerWidth;
         bgCanvas.height = drawCanvas.height = totalHeight;
         drawCanvas.style.position = 'absolute';
         drawCanvas.style.top = '0';
         drawCanvas.style.left = '0';
         drawCanvas.style.cursor = 'crosshair';
-
         let currentY = 0;
         for (let i = 0; i < pages.length; i++) {
             const page = pages[i];
@@ -114,7 +109,6 @@ document.addEventListener('DOMContentLoaded', () => {
             await page.render(renderContext).promise;
             currentY += scaledViewport.height;
         }
-
         drawCanvas.addEventListener('mousedown', startDrawing);
         drawCanvas.addEventListener('mousemove', draw);
         drawCanvas.addEventListener('mouseup', stopDrawing);
@@ -122,16 +116,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startDrawing(event) {
-        const drawCanvas = document.getElementById('pdf-drawing-canvas');
         isDrawing = true;
-        startCoords = getMousePos(drawCanvas, event);
+        startCoords = getMousePos(event.target, event);
     }
 
     function draw(event) {
         if (!isDrawing) return;
-        const drawCanvas = document.getElementById('pdf-drawing-canvas');
-        const currentCoords = getMousePos(drawCanvas, event);
         redrawAll();
+        const currentCoords = getMousePos(event.target, event);
         const width = currentCoords.x - startCoords.x;
         const height = currentCoords.y - startCoords.y;
         const tempRect = { x: startCoords.x, y: startCoords.y, width, height };
@@ -142,8 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function stopDrawing(event) {
         if (!isDrawing) return;
         isDrawing = false;
-        const drawCanvas = document.getElementById('pdf-drawing-canvas');
-        const endCoords = getMousePos(drawCanvas, event);
+        const endCoords = getMousePos(event.target, event);
         const rect = {
             x: Math.min(startCoords.x, endCoords.x),
             y: Math.min(startCoords.y, endCoords.y),
@@ -231,13 +222,118 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         reader.readAsArrayBuffer(file);
     }
-    
-    function setLoading(isLoading) { /* ...código sem alteração... */ }
-    function showFeedback(message, type) { /* ...código sem alteração... */ }
-    
+
+    function setLoading(isLoading) {
+        if (isLoading) {
+            submitButton.disabled = true;
+            submitButton.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Gerando...`;
+        } else {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Gerar Link de Assinatura';
+        }
+    }
+
+    function showFeedback(message, type) {
+        const colorClasses = {
+            success: 'text-green-600',
+            error: 'text-red-600',
+            info: 'text-blue-600'
+        };
+        feedbackMessage.textContent = message;
+        feedbackMessage.className = `mt-4 text-center text-sm ${colorClasses[type] || 'text-gray-600'}`;
+    }
+
     // --- Event Listeners ---
     osFileInput.addEventListener('change', handleFileSelect);
     cancelPreparationBtn.addEventListener('click', resetPreparationView);
-    uploadForm.addEventListener('submit', async (event) => { /* ... (código que já tínhamos)... */ });
-    // (outros listeners seriam definidos aqui)
+    
+    uploadForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!rects.tecnico || !rects.cliente) {
+            alert("Por favor, defina as áreas de assinatura para o técnico e para o cliente.");
+            return;
+        }
+
+        const firstPage = pageDimensions[0];
+        const canvasWidth = pdfPreviewWrapper.clientWidth;
+        const viewportScale = canvasWidth / firstPage.width;
+        
+        const convertCoords = (rect) => {
+            if (!rect) return null;
+            let yOffset = 0;
+            let pageNum = 0;
+            for(let i=0; i<pageDimensions.length; i++){
+                if(rect.y < yOffset + pageDimensions[i].scaledHeight){
+                    pageNum = i + 1;
+                    break;
+                }
+                yOffset += pageDimensions[i].scaledHeight;
+            }
+            if(pageNum === 0) pageNum = pageDimensions.length;
+
+            const pageDim = pageDimensions[pageNum-1];
+            const scale = pageDim.width / (canvasWidth);
+            
+            return {
+                page: pageNum, 
+                x: rect.x * scale,
+                y: pageDim.height - ((rect.y - yOffset) * scale) - (rect.height * scale),
+                width: rect.width * scale,
+                height: rect.height * scale
+            };
+        };
+
+        const tecnicoCoords = convertCoords(rects.tecnico);
+        const clienteCoords = convertCoords(rects.cliente);
+        const nomeCliente = clienteNomeInput.value || null;
+        const telefoneCliente = clienteTelefoneInput.value || null;
+        const emailCliente = clienteEmailInput.value || null;
+        const n_os = uploadForm.dataset.extractedOs || null;
+        const status_os = uploadForm.dataset.extractedStatusOs || null;
+        setLoading(true);
+        try {
+            const fileName = `${Date.now()}-${sanitizarNomeArquivo(currentFile.name)}`;
+            const { data: uploadData, error: uploadError } = await supabase.storage.from('documentos').upload(fileName, currentFile);
+            if(uploadError) throw uploadError;
+            const { data: insertData, error: insertError } = await supabase.from('documentos').insert({ 
+                caminho_arquivo_storage: uploadData.path, 
+                nome_cliente: nomeCliente,
+                telefone_cliente: telefoneCliente,
+                cliente_email: emailCliente,
+                n_os: n_os,
+                status_os: status_os,
+                tecnico_assinatura_coords: tecnicoCoords,
+                cliente_assinatura_coords: clienteCoords
+            }).select('id').single();
+            if(insertError) throw insertError;
+            const documentoId = insertData.id;
+            const linkDeAssinatura = `${SITE_BASE_URL}/assinar.html?id=${documentoId}`;
+            linkInput.value = linkDeAssinatura;
+            actionsContainer.classList.remove('hidden');
+            whatsappContainer.style.display = telefoneCliente ? 'block' : 'none';
+            showFeedback('Link gerado!', 'success');
+            // NÃO reseta a view, para permitir copiar/enviar
+        } catch (error) {
+            console.error('Erro no processo:', error);
+            showFeedback(`Erro: ${error.message}`, 'error');
+        } finally {
+            setLoading(false);
+        }
+    });
+
+    copiarBtn.addEventListener('click', () => {
+        linkInput.select();
+        navigator.clipboard.writeText(linkInput.value);
+        copiarBtn.textContent = 'Copiado!';
+        setTimeout(() => { copiarBtn.textContent = 'Copiar'; }, 2000);
+    });
+
+    whatsappBtn.addEventListener('click', () => {
+        const telefone = clienteTelefoneInput.value.replace(/\D/g, '');
+        const linkAssinatura = linkInput.value;
+        const mensagem = encodeURIComponent(`Olá! Por favor, assine a Ordem de Serviço acessando o link: ${linkAssinatura}`);
+        window.open(`https://wa.me/${telefone}?text=${mensagem}`, '_blank');
+    });
+
+    window.addEventListener('resize', renderPdfPreview);
 });
