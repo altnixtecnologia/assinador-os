@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const deleteCheckbox = document.getElementById('delete-checkbox');
     const navToNewBtn = document.getElementById('nav-to-new-btn');
     const navToConsultBtn = document.getElementById('nav-to-consult-btn');
-    const refreshListBtn = document.getElementById('refresh-list-btn'); // NOVO ELEMENTO
+    const refreshListBtn = document.getElementById('refresh-list-btn');
     
     // --- Estado do Aplicativo ---
     let pdfDoc = null;
@@ -63,7 +63,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let extractedDataFromPdf = {};
 
     // --- Funções de UI e Lógica Principal ---
-
     function showFeedback(message, type = 'info') {
         const colorClasses = { success: 'text-green-600', error: 'text-red-600', info: 'text-blue-600' };
         feedbackMessage.textContent = message;
@@ -130,10 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!pdfDoc) return;
         pdfPreviewWrapper.innerHTML = '';
         pageDimensions = [];
-        
         const containerWidth = pdfPreviewWrapper.clientWidth;
         let totalHeight = 0;
-        
         const pages = [];
         for (let i = 1; i <= pdfDoc.numPages; i++) {
             const page = await pdfDoc.getPage(i);
@@ -143,21 +140,17 @@ document.addEventListener('DOMContentLoaded', () => {
             pageDimensions.push({ num: i, width: viewport.width, height: viewport.height, scaledHeight });
             totalHeight += scaledHeight;
         }
-
         const bgCanvas = document.createElement('canvas');
         bgCanvas.id = 'pdf-background-canvas';
         const drawCanvas = document.createElement('canvas');
         drawCanvas.id = 'pdf-drawing-canvas';
         pdfPreviewWrapper.appendChild(bgCanvas);
         pdfPreviewWrapper.appendChild(drawCanvas);
-
         bgCanvas.width = drawCanvas.width = containerWidth;
         bgCanvas.height = drawCanvas.height = totalHeight;
-        
         drawCanvas.style.position = 'absolute';
         drawCanvas.style.top = '0';
         drawCanvas.style.left = '0';
-        
         const bgCtx = bgCanvas.getContext('2d');
         let currentY = 0;
         for (let i = 0; i < pages.length; i++) {
@@ -167,14 +160,12 @@ document.addEventListener('DOMContentLoaded', () => {
             await page.render(renderContext).promise;
             currentY += scaledViewport.height;
         }
-
         drawCanvas.addEventListener('mousedown', startDrawing);
         drawCanvas.addEventListener('mousemove', draw);
         drawCanvas.addEventListener('mouseup', stopDrawing);
         redrawAll();
     }
 
-    // --- Funções de Desenho no Canvas ---
     function startDrawing(event) {
         isDrawing = true;
         startCoords = getMousePos(event.target, event);
@@ -202,7 +193,6 @@ document.addEventListener('DOMContentLoaded', () => {
             height: Math.abs(startCoords.y - endCoords.y)
         };
         if (rect.width < 10 || rect.height < 10) { redrawAll(); return; }
-
         if (currentDrawingFor === 'tecnico') {
             rects.tecnico = rect;
             currentDrawingFor = 'cliente';
@@ -241,16 +231,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // --- Lógica de Consulta de Documentos ---
     async function carregarDocumentos() {
         listLoadingFeedback.style.display = 'block';
         listLoadingFeedback.textContent = "Carregando documentos...";
         documentList.innerHTML = '';
-
         try {
             const { data, error, count } = await db.getDocuments(currentPage, ITENS_PER_PAGE, currentStatusFilter, currentSearchTerm);
             if (error) throw error;
-            
             allDocumentsData = data;
             totalDocuments = count;
             renderizarLista(data);
@@ -269,30 +256,47 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         docs.forEach(doc => {
-            const assinatura = doc.assinaturas && doc.assinaturas.length > 0 ? doc.assinaturas[0] : null;
             const card = document.createElement('div');
             card.className = 'border rounded-lg p-4 bg-gray-50 shadow-sm';
-            const statusAssinaturaClass = doc.status === 'assinado' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
-            const statusAssinaturaText = doc.status === 'assinado' ? 'Assinado ✅' : 'Pendente ⏳';
             const dataEnvio = new Date(doc.created_at).toLocaleDateString('pt-BR');
             const nomeArquivoOriginal = doc.caminho_arquivo_storage.split('-').slice(1).join('-') || doc.caminho_arquivo_storage;
+            
+            let statusHtml = '';
+            let actionsHtml = '';
+
+            if (doc.status === 'assinado') {
+                statusHtml = `<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-green-100 text-green-800">Assinado ✅</span>`;
+                const assinatura = doc.assinaturas && doc.assinaturas.length > 0 ? doc.assinaturas[0] : null;
+                actionsHtml = `
+                    <button class="download-btn text-sm text-blue-600 hover:underline" data-path="${doc.caminho_arquivo_storage}">Original</button>
+                    ${doc.caminho_arquivo_assinado ? `<button class="download-btn text-sm text-green-600 hover:underline" data-path="${doc.caminho_arquivo_assinado}">Assinado</button>` : ''}
+                    ${assinatura ? `<button class="ver-detalhes-btn text-sm text-gray-600 hover:underline" data-doc-id="${doc.id}">Detalhes</button>` : ''}
+                `;
+            } else { // Pendente
+                statusHtml = `<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-800">Pendente ⏳</span>`;
+                actionsHtml = `<button class="download-btn text-sm text-blue-600 hover:underline" data-path="${doc.caminho_arquivo_storage}">Original</button>`;
+                if (doc.link_assinatura) {
+                    actionsHtml += ` <button class="copy-link-btn text-sm text-purple-600 hover:underline" data-link="${doc.link_assinatura}">Copiar Link</button>`;
+                } else {
+                    actionsHtml += ` <button class="generate-link-btn text-sm text-purple-600 hover:underline" data-doc-id="${doc.id}">Gerar Link</button>`;
+                }
+            }
+
             card.innerHTML = `
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                     <div class="flex-grow min-w-0">
                         <p class="font-bold text-gray-800 break-all">${nomeArquivoOriginal}</p>
-                        <p class="text-sm text-gray-500 truncate">${doc.nome_cliente ? `Cliente: ${doc.nome_cliente}` : (assinatura ? `Assinado por: ${assinatura.nome_signatario}` : '')}</p>
+                        <p class="text-sm text-gray-500 truncate">${doc.nome_cliente ? `Cliente: ${doc.nome_cliente}` : ''}</p>
                         ${doc.n_os ? `<p class="text-sm text-gray-500 font-semibold">OS N°: ${doc.n_os}</p>` : ''}
                     </div>
                     <div class="flex-shrink-0 flex flex-col sm:flex-row items-start sm:items-center gap-4">
                         <div class="flex flex-col items-start sm:items-end text-right">
-                            <span class="text-xs font-medium px-2.5 py-1 rounded-full ${statusAssinaturaClass}" title="Status da Assinatura">${statusAssinaturaText}</span>
+                            ${statusHtml}
                             ${doc.status_os ? `<span class="text-xs font-semibold mt-1 text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full" title="Status do Serviço">${doc.status_os}</span>` : ''}
                         </div>
                         <span class="text-sm text-gray-600">Enviado em: ${dataEnvio}</span>
                         <div class="flex gap-2 flex-wrap">
-                            <button class="download-btn text-sm text-blue-600 hover:underline" data-path="${doc.caminho_arquivo_storage}">Original</button>
-                            ${doc.status === 'assinado' && doc.caminho_arquivo_assinado ? `<button class="download-btn text-sm text-green-600 hover:underline" data-path="${doc.caminho_arquivo_assinado}">Assinado</button>` : ''}
-                            ${assinatura ? `<button class="ver-detalhes-btn text-sm text-gray-600 hover:underline" data-doc-id="${doc.id}">Detalhes</button>` : ''}
+                            ${actionsHtml}
                             <button class="excluir-btn text-sm text-red-600 hover:underline" data-doc-id="${doc.id}">Excluir</button>
                         </div>
                     </div>
@@ -301,7 +305,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // --- Funções de Modais (Detalhes e Exclusão) ---
     function abrirExclusaoModal(docId) {
         docIdParaExcluir = docId;
         deleteCheckbox.checked = false;
@@ -333,7 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function abrirModalDetalhes(doc) {
-        const assinatura = doc.assinaturas[0];
+        const assinatura = doc.assinaturas && doc.assinaturas.length > 0 ? doc.assinaturas[0] : null;
         modalContent.innerHTML = `
             <h4 class="font-bold">Documento</h4>
             <p><strong>Nome Original:</strong> ${doc.caminho_arquivo_storage.split('-').slice(1).join('-')}</p>
@@ -341,16 +344,20 @@ document.addEventListener('DOMContentLoaded', () => {
             <p><strong>Nº da O.S.:</strong> ${doc.n_os || 'Não informado'}</p>
             <p><strong>Status do Serviço:</strong> ${doc.status_os || 'Não informado'}</p>
             <p><strong>Cliente:</strong> ${doc.nome_cliente || 'Não informado'}</p>
+            ${assinatura ? `
             <hr class="my-4">
             <h4 class="font-bold">Dados da Assinatura</h4>
             <p><strong>Nome do Assinante:</strong> ${assinatura.nome_signatario || 'Não informado'}</p>
             <p><strong>Email:</strong> ${assinatura.email_signatario || 'Não informado'}</p>
             <p><strong>CPF/CNPJ:</strong> ${assinatura.cpf_cnpj_signatario || 'Não informado'}</p>
-            <p><strong>Data da Assinatura:</strong> ${new Date(assinatura.assinado_em).toLocaleString('pt-BR')}</p>
+            <p><strong>Data da Assinatura:</strong> ${assinatura.data_hora_local || new Date(assinatura.assinado_em).toLocaleString('pt-BR')}</p>
+            <p><strong>ID Google:</strong> ${assinatura.google_user_id || 'Não informado'}</p>
+            <p><strong>Endereço IP:</strong> ${assinatura.ip_signatario || 'Não informado'}</p>
             <div>
                 <p><strong>Assinatura Gráfica:</strong></p>
                 <img src="${assinatura.imagem_assinatura_base64}" class="border mt-2 w-full max-w-sm" alt="Assinatura">
-            </div>`;
+            </div>` : ''}
+        `;
         detailsModal.classList.add('active');
     }
 
@@ -363,7 +370,6 @@ document.addEventListener('DOMContentLoaded', () => {
         nextPageBtn.classList.toggle('btn-disabled', (currentPage + 1) >= totalPages);
     }
     
-    // --- Função de Ajuda ---
     function sanitizarNomeArquivo(nome) {
         const comAcentos = 'àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþßŕ';
         const semAcentos = 'aaaaaaaceeeeiiiionoooooouuuuybsr';
@@ -387,8 +393,6 @@ document.addEventListener('DOMContentLoaded', () => {
         carregarDocumentos();
     });
     backToInitialViewBtn.addEventListener('click', resetPreparationView);
-    
-    // NOVO EVENTO para o botão de atualização
     refreshListBtn.addEventListener('click', carregarDocumentos);
 
     uploadForm.addEventListener('submit', async (event) => {
@@ -397,7 +401,6 @@ document.addEventListener('DOMContentLoaded', () => {
             showFeedback("Defina as áreas de assinatura para o técnico e cliente.", "error");
             return;
         }
-        
         const convertCoords = (rect) => {
              if (!rect) return null;
              let yOffset = 0;
@@ -439,12 +442,14 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             const insertData = await db.createDocumentRecord(documentRecord);
-            
             const linkDeAssinatura = `${SITE_BASE_URL}/assinar.html?id=${insertData.id}`;
             linkInput.value = linkDeAssinatura;
+
+            await db.updateDocumentLink(insertData.id, linkDeAssinatura);
+            
             actionsContainer.classList.remove('hidden');
             whatsappContainer.style.display = clienteTelefoneInput.value ? 'block' : 'none';
-            showFeedback('Link gerado com sucesso!', 'success');
+            showFeedback('Link gerado e salvo com sucesso!', 'success');
 
         } catch (error) {
             console.error('Erro no processo de envio:', error);
@@ -467,7 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.open(`https://wa.me/${telefoneCompleto}?text=${mensagem}`, '_blank');
     });
 
-    documentList.addEventListener('click', (e) => {
+    documentList.addEventListener('click', async (e) => {
         const target = e.target;
         if (target.classList.contains('download-btn')) {
             const path = target.dataset.path;
@@ -477,12 +482,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target.classList.contains('ver-detalhes-btn')) {
             const docId = target.dataset.docId;
             const doc = allDocumentsData.find(d => d.id.toString() === docId);
-            if (doc && doc.assinaturas && doc.assinaturas.length > 0) {
+            if (doc) {
                 abrirModalDetalhes(doc);
             }
         }
         if (target.classList.contains('excluir-btn')) {
             abrirExclusaoModal(target.dataset.docId);
+        }
+        if (target.classList.contains('generate-link-btn')) {
+            const docId = target.dataset.docId;
+            target.textContent = 'Gerando...';
+            target.disabled = true;
+            try {
+                const link = `${SITE_BASE_URL}/assinar.html?id=${docId}`;
+                await db.updateDocumentLink(docId, link);
+                await carregarDocumentos();
+            } catch (error) {
+                alert('Erro ao gerar o link.');
+                target.textContent = 'Gerar Link';
+                target.disabled = false;
+            }
+        }
+        if (target.classList.contains('copy-link-btn')) {
+            const link = target.dataset.link;
+            navigator.clipboard.writeText(link);
+            target.textContent = 'Copiado!';
+            setTimeout(() => { target.textContent = 'Copiar Link'; }, 2000);
         }
     });
     
