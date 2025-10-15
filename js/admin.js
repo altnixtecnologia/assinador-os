@@ -275,10 +275,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } else { // Pendente
                 statusHtml = `<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-800">Pendente ⏳</span>`;
                 actionsHtml = `<button class="download-btn text-sm text-blue-600 hover:underline" data-path="${doc.caminho_arquivo_storage}">Original</button>`;
-                // A lógica de "Gerar Link" foi removida, agora sempre mostra "Copiar Link" para pendentes.
-                if (doc.link_assinatura) {
-                    actionsHtml += ` <button class="copy-link-btn text-sm text-purple-600 hover:underline" data-link="${doc.link_assinatura}">Copiar Link</button>`;
-                }
+                // CORRIGIDO: Sempre mostra o botão "Copiar Link" para documentos pendentes.
+                actionsHtml += ` <button class="copy-link-btn text-sm text-purple-600 hover:underline" data-link="${doc.link_assinatura || ''}">Copiar Link</button>`;
             }
 
             card.innerHTML = `
@@ -488,6 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target.classList.contains('excluir-btn')) {
             abrirExclusaoModal(target.dataset.docId);
         }
+        // Lógica de 'Gerar Link' foi removida
         if (target.classList.contains('copy-link-btn')) {
             const link = target.dataset.link;
             navigator.clipboard.writeText(link);
