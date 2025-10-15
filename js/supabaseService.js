@@ -13,8 +13,7 @@ export async function getDocuments(page, itemsPerPage, filter, searchTerm) {
         .from('documentos')
         .select(`
             id, created_at, status, cliente_email, nome_cliente, n_os, status_os, 
-            caminho_arquivo_storage, caminho_arquivo_assinado, 
-            assinaturas ( nome_signatario, cpf_cnpj_signatario, email_signatario, assinado_em, imagem_assinatura_base64 )
+            caminho_arquivo_storage, caminho_arquivo_assinado, link_assinatura
         `, { count: 'exact' })
         .order('created_at', { ascending: false })
         .range(from, to);
@@ -23,7 +22,7 @@ export async function getDocuments(page, itemsPerPage, filter, searchTerm) {
         query = query.eq('status', filter);
     }
     if (searchTerm) {
-        query = query.or(`caminho_arquivo_storage.ilike.%${searchTerm}%,cliente_email.ilike.%${searchTerm}%,nome_cliente.ilike.%${searchTerm}%,n_os.ilike.%${searchTerm}%,status_os.ilike.%${searchTerm}%,assinaturas.nome_signatario.ilike.%${searchTerm}%`);
+        query = query.or(`caminho_arquivo_storage.ilike.%${searchTerm}%,cliente_email.ilike.%${searchTerm}%,nome_cliente.ilike.%${searchTerm}%,n_os.ilike.%${searchTerm}%,status_os.ilike.%${searchTerm}%`);
     }
 
     return await query;
@@ -39,6 +38,15 @@ export async function createDocumentRecord(documentData) {
     const { data, error } = await supabase.from('documentos').insert(documentData).select('id').single();
     if (error) throw error;
     return data;
+}
+
+// NOVO: Função para salvar o link de assinatura no banco de dados
+export async function updateDocumentLink(docId, link) {
+    const { error } = await supabase
+        .from('documentos')
+        .update({ link_assinatura: link })
+        .eq('id', docId);
+    if (error) throw error;
 }
 
 export async function deleteDocument(docId) {
@@ -57,11 +65,7 @@ export function getPublicUrl(path) {
 
 // --- FUNÇÕES DA PÁGINA DE ASSINATURA ---
 
-/**
- * Verifica se um documento já possui uma assinatura.
- */
 export async function checkIfSigned(docId) {
-    // ATUALIZADO AQUI: Forma mais robusta de verificar, evitando o erro 406.
     const { data, error } = await supabase
         .from('assinaturas')
         .select('id')
@@ -71,35 +75,23 @@ export async function checkIfSigned(docId) {
         console.error("Erro em checkIfSigned:", error);
         return false;
     }
-    // Retorna true se o array de dados tiver pelo menos um item.
     return data && data.length > 0;
 }
 
-/**
- * Inicia o fluxo de login com o Google.
- */
 export async function signInWithGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: {
-            redirectTo: window.location.href
-        }
+        options: { redirectTo: window.location.href }
     });
     if (error) throw error;
 }
 
-/**
- * Busca os dados de um documento específico para assinatura.
- */
 export async function getDocumentForSigning(docId) {
     const { data, error } = await supabase.from('documentos').select('caminho_arquivo_storage').eq('id', docId).single();
     if (error) throw error;
     return data;
 }
 
-/**
- * Submete os dados da assinatura para a Edge Function 'salvar-assinatura'.
- */
 export async function submitSignature(signatureData) {
     const { data, error } = await supabase.functions.invoke('salvar-assinatura', {
         body: signatureData,
