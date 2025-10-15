@@ -275,10 +275,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else { // Pendente
                 statusHtml = `<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-800">Pendente ⏳</span>`;
                 actionsHtml = `<button class="download-btn text-sm text-blue-600 hover:underline" data-path="${doc.caminho_arquivo_storage}">Original</button>`;
+                // A lógica de "Gerar Link" foi removida, agora sempre mostra "Copiar Link" para pendentes.
                 if (doc.link_assinatura) {
                     actionsHtml += ` <button class="copy-link-btn text-sm text-purple-600 hover:underline" data-link="${doc.link_assinatura}">Copiar Link</button>`;
-                } else {
-                    actionsHtml += ` <button class="generate-link-btn text-sm text-purple-600 hover:underline" data-doc-id="${doc.id}">Gerar Link</button>`;
                 }
             }
 
@@ -488,20 +487,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (target.classList.contains('excluir-btn')) {
             abrirExclusaoModal(target.dataset.docId);
-        }
-        if (target.classList.contains('generate-link-btn')) {
-            const docId = target.dataset.docId;
-            target.textContent = 'Gerando...';
-            target.disabled = true;
-            try {
-                const link = `${SITE_BASE_URL}/assinar.html?id=${docId}`;
-                await db.updateDocumentLink(docId, link);
-                await carregarDocumentos();
-            } catch (error) {
-                alert('Erro ao gerar o link.');
-                target.textContent = 'Gerar Link';
-                target.disabled = false;
-            }
         }
         if (target.classList.contains('copy-link-btn')) {
             const link = target.dataset.link;
