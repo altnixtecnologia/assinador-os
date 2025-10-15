@@ -489,6 +489,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Lógica de 'Gerar Link' foi removida
         if (target.classList.contains('copy-link-btn')) {
             const link = target.dataset.link;
+            console.log("Tentando copiar o link:", link);
             navigator.clipboard.writeText(link);
             target.textContent = 'Copiado!';
             setTimeout(() => { target.textContent = 'Copiar Link'; }, 2000);
