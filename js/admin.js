@@ -275,8 +275,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } else { // Pendente
                 statusHtml = `<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-800">Pendente ⏳</span>`;
                 actionsHtml = `<button class="download-btn text-sm text-blue-600 hover:underline" data-path="${doc.caminho_arquivo_storage}">Original</button>`;
-                // CORRIGIDO: Sempre mostra o botão "Copiar Link" para documentos pendentes.
-                actionsHtml += ` <button class="copy-link-btn text-sm text-purple-600 hover:underline" data-link="${doc.link_assinatura || ''}">Copiar Link</button>`;
+                // CORRIGIDO: O botão agora guarda o ID do documento, não o link.
+                actionsHtml += ` <button class="copy-link-btn text-sm text-purple-600 hover:underline" data-doc-id="${doc.id}">Copiar Link</button>`;
             }
 
             card.innerHTML = `
@@ -486,10 +486,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target.classList.contains('excluir-btn')) {
             abrirExclusaoModal(target.dataset.docId);
         }
-        // Lógica de 'Gerar Link' foi removida
         if (target.classList.contains('copy-link-btn')) {
-            const link = target.dataset.link;
-            console.log("Tentando copiar o link:", link);
+            // CORRIGIDO: Recria o link na hora do clique, em vez de ler do data-attribute
+            const docId = target.dataset.docId;
+            const link = `${SITE_BASE_URL}/assinar.html?id=${docId}`;
+
             navigator.clipboard.writeText(link);
             target.textContent = 'Copiado!';
             setTimeout(() => { target.textContent = 'Copiar Link'; }, 2000);
