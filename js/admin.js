@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const cancelLinkImportBtn = document.getElementById('cancel-link-import-btn');
     const linkImportSubmitBtn = document.getElementById('link-import-submit-btn');
     const importFeedback = document.getElementById('import-feedback');
+    const pasteLinkBtn = document.getElementById('paste-link-btn');
+    const clearLinkBtn = document.getElementById('clear-link-btn');
     const preparationView = document.getElementById('preparation-view');
     const cancelPreparationBtn = document.getElementById('cancel-preparation-btn');
     const instructionText = document.getElementById('instruction-text');
@@ -410,13 +412,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Listeners ---
     osFileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
-        if (file) startPreparationProcess(file);
+        if (file) startPreparationProcess(file, file.name);
     });
+
     showLinkImportBtn.addEventListener('click', () => {
         uploadInitialView.style.display = 'none';
         linkImportView.classList.remove('hidden');
+        docUrlInput.value = '';
+        showFeedback('', 'info', importFeedback);
     });
+
     cancelLinkImportBtn.addEventListener('click', showInitialView);
+
     linkImportForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         const url = docUrlInput.value;
@@ -434,6 +441,20 @@ document.addEventListener('DOMContentLoaded', () => {
             linkImportSubmitBtn.textContent = 'Importar Documento';
         }
     });
+
+    pasteLinkBtn.addEventListener('click', async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            docUrlInput.value = text;
+        } catch (err) {
+            alert('Não foi possível ler a área de transferência. Verifique as permissões do navegador.');
+        }
+    });
+
+    clearLinkBtn.addEventListener('click', () => {
+        docUrlInput.value = '';
+    });
+
     cancelPreparationBtn.addEventListener('click', resetPreparationView);
     showConsultationBtn.addEventListener('click', () => {
         uploadInitialView.style.display = 'none';
