@@ -68,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let debounceTimer;
     let docIdParaExcluir = null;
     let extractedDataFromPdf = {};
+    let currentErpLink = null; 
 
     // --- Funções de UI e Lógica Principal ---
     function showInitialView() {
@@ -77,7 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadInitialView.style.display = 'block';
     }
 
-    async function startPreparationProcess(source, fileName = '') {
+    async function startPreparationProcess(source, fileName = '', erpLink = null) {
+        currentErpLink = erpLink;
         uploadInitialView.style.display = 'none';
         linkImportView.classList.add('hidden');
         consultationView.style.display = 'none';
@@ -93,7 +95,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!response.ok) throw new Error(`Falha ao buscar PDF da URL.`);
                 const blob = await response.blob();
                 currentFile = new File([blob], fileName || 'documento.pdf', { type: 'application/pdf' });
-                // Usamos uma propriedade para saber que o arquivo já está no storage
                 currentFile.internalPath = source; 
             }
             
@@ -356,9 +357,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function abrirModalDetalhes(doc) {
         const assinatura = doc.assinaturas && doc.assinaturas.length > 0 ? doc.assinaturas[0] : null;
+        const erpLinkHtml = doc.erp_link 
+            ? `<p><strong>Link do ERP:</strong> <a href="${doc.erp_link}" target="_blank" class="text-blue-600 hover:underline">Abrir no ERP</a></p>` 
+            : '';
         modalContent.innerHTML = `
             <h4 class="font-bold">Documento</h4>
             <p><strong>Nome Original:</strong> ${doc.caminho_arquivo_storage.split('-').slice(1).join('-')}</p>
+            ${erpLinkHtml}
             <p><strong>Enviado em:</strong> ${new Date(doc.created_at).toLocaleString('pt-BR')}</p>
             <p><strong>Nº da O.S.:</strong> ${doc.n_os || 'Não informado'}</p>
             <p><strong>Status do Serviço:</strong> ${doc.status_os || 'Não informado'}</p>
@@ -407,26 +412,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const file = event.target.files[0];
         if (file) startPreparationProcess(file);
     });
-
     showLinkImportBtn.addEventListener('click', () => {
         uploadInitialView.style.display = 'none';
         linkImportView.classList.remove('hidden');
     });
-
     cancelLinkImportBtn.addEventListener('click', showInitialView);
-
     linkImportForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         const url = docUrlInput.value;
         if (!url) return;
-
         linkImportSubmitBtn.disabled = true;
         linkImportSubmitBtn.textContent = 'Importando...';
         showFeedback('Buscando e salvando o PDF...', 'info', importFeedback);
-
         try {
-            const { path, name } = await db.importFromUrl(url);
-            await startPreparationProcess(path, name);
+            const { path, name, originalUrl } = await db.importFromUrl(url);
+            await startPreparationProcess(path, name, originalUrl);
         } catch (error) {
             showFeedback(`Erro: ${error.message}`, 'error', importFeedback);
         } finally {
@@ -434,7 +434,6 @@ document.addEventListener('DOMContentLoaded', () => {
             linkImportSubmitBtn.textContent = 'Importar Documento';
         }
     });
-
     cancelPreparationBtn.addEventListener('click', resetPreparationView);
     showConsultationBtn.addEventListener('click', () => {
         uploadInitialView.style.display = 'none';
@@ -467,13 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
              const pageDim = pageDimensions[pageNum-1];
              const canvasWidth = document.getElementById('pdf-background-canvas').width;
              const scale = pageDim.width / canvasWidth;
-             return {
-                 page: pageNum, 
-                 x: rect.x * scale,
-                 y: pageDim.height - ((rect.y - yOffset) * scale) - (rect.height * scale),
-                 width: rect.width * scale,
-                 height: rect.height * scale
-             };
+             return { page: pageNum, x: rect.x * scale, y: pageDim.height - ((rect.y - yOffset) * scale) - (rect.height * scale), width: rect.width * scale, height: rect.height * scale };
         };
 
         setLoading(true);
@@ -494,7 +487,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 n_os: extractedDataFromPdf.n_os || null,
                 status_os: extractedDataFromPdf.status_os || null,
                 tecnico_assinatura_coords: convertCoords(rects.tecnico),
-                cliente_assinatura_coords: convertCoords(rects.cliente)
+                cliente_assinatura_coords: convertCoords(rects.cliente),
+                erp_link: currentErpLink,
             };
 
             const insertData = await db.createDocumentRecord(documentRecord);
