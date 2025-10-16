@@ -18,10 +18,8 @@
     <div class="w-full max-w-6xl mx-auto bg-white rounded-lg shadow-md p-8">
         <h1 class="text-2xl font-bold text-center text-gray-800 mb-6 border-b pb-4">Painel de Assinaturas</h1>
 
-        <!-- ATUALIZADO: Nova tela inicial com duas opções -->
         <div id="initial-view" class="text-center py-8">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-                <!-- Opção 1: Enviar PDF -->
                 <div class="border rounded-lg p-6 flex flex-col items-center justify-center hover:shadow-lg transition-shadow">
                     <h2 class="text-xl font-semibold mb-4 text-gray-700">Enviar O.S. PDF</h2>
                     <p class="text-gray-500 mb-6 text-sm">Faça o upload de um arquivo PDF do seu computador.</p>
@@ -30,7 +28,6 @@
                     </label>
                     <input type="file" id="os-file" class="hidden" accept="application/pdf"/>
                 </div>
-                <!-- Opção 2: Enviar por Link -->
                 <div class="border rounded-lg p-6 flex flex-col items-center justify-center hover:shadow-lg transition-shadow">
                     <h2 class="text-xl font-semibold mb-4 text-gray-700">Enviar O.S. Link</h2>
                     <p class="text-gray-500 mb-6 text-sm">Cole o link compartilhável do seu sistema ERP.</p>
@@ -44,19 +41,129 @@
             </button>
         </div>
 
-        <!-- NOVO: Tela para importar por link -->
         <div id="link-import-view" class="hidden max-w-lg mx-auto text-center">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">Importar Documento por Link</h2>
-            <form id="link-import-form" class="space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xl font-bold text-gray-800">Importar por Link</h2>
+                <button id="cancel-link-import-btn" class="text-sm text-gray-600 hover:underline">Cancelar</button>
+            </div>
+            <form id="link-import-form" class="space-y-4 mt-6">
                 <input type="url" id="doc-url-input" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="https://erp.tiny.com.br/doc.view?id=..." required>
                 <button type="submit" id="link-import-submit-btn" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
                     Importar Documento
                 </button>
             </form>
-            <button id="cancel-link-import-btn" class="mt-4 text-sm text-gray-600 hover:underline">Cancelar</button>
+            <div id="import-feedback" class="mt-4 text-sm"></div>
         </div>
 
-        <!-- O restante do HTML (preparation-view, consultation-view, modais) permanece o mesmo -->
+        <div id="preparation-view" class="hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Preparação do Documento</h2>
+                <button id="cancel-preparation-btn" class="text-sm text-gray-600 hover:underline">Cancelar e Voltar</button>
+            </div>
+            <div class="flex flex-col md:flex-row gap-8">
+                <div class="w-full md:w-2/3 border rounded-lg p-4 bg-gray-50">
+                    <p id="instruction-text" class="text-center font-semibold text-blue-700 mb-4 p-2 bg-blue-100 rounded"></p>
+                    <div id="pdf-preview-wrapper" class="relative w-full pdf-preview-container bg-white border"></div>
+                </div>
+                <div class="w-full md:w-1/3">
+                    <form id="upload-form" class="space-y-4">
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2">Dados do Cliente (Editáveis)</h3>
+                        <div>
+                            <label for="cliente-nome" class="block text-sm font-medium text-gray-700">Nome do Cliente</label>
+                            <input type="text" id="cliente-nome" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white">
+                        </div>
+                        <div>
+                            <label for="cliente-telefone" class="block text-sm font-medium text-gray-700">Telefone para WhatsApp</label>
+                            <input type="tel" id="cliente-telefone" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white">
+                        </div>
+                        <div>
+                            <label for="cliente-email" class="block text-sm font-medium text-gray-700">E-mail</label>
+                            <input type="email" id="cliente-email" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white">
+                        </div>
+                        <div class="pt-4">
+                            <button type="submit" id="submit-button" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                                Gerar Link de Assinatura
+                            </button>
+                        </div>
+                    </form>
+                    <div id="feedback-message" class="mt-4 text-center text-sm"></div>
+                    <div id="actions-container" class="mt-6 hidden space-y-4">
+                        <div id="link-gerado-container">
+                            <label class="block text-sm font-medium text-gray-700">Link Gerado com Sucesso!</label>
+                            <div class="mt-1 flex rounded-md shadow-sm">
+                                <input type="text" id="link-gerado-input" readonly class="flex-1 block w-full rounded-none rounded-l-md sm:text-sm border-gray-300 bg-gray-50 p-2">
+                                <button type="button" id="copiar-link-btn" class="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-700 text-sm hover:bg-gray-100">
+                                    Copiar
+                                </button>
+                            </div>
+                        </div>
+                        <div id="whatsapp-container" class="hidden">
+                             <button type="button" id="whatsapp-btn" class="mt-1 w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+                                Enviar via WhatsApp
+                            </button>
+                        </div>
+                        <div id="post-generation-nav" class="pt-4 space-y-2 border-t mt-4">
+                            <button id="nav-to-new-btn" class="w-full text-center py-2 px-4 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">Enviar Novo Documento</button>
+                            <button id="nav-to-consult-btn" class="w-full text-center py-2 px-4 rounded-md text-sm font-medium text-white bg-gray-600 hover:bg-gray-700">Consultar Enviados</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="consultation-view" class="hidden mt-10">
+            <div class="flex justify-between items-center mb-6 border-b pb-4">
+                <h2 class="text-2xl font-bold text-gray-800">Consulta de Documentos</h2>
+                <div class="flex items-center gap-4">
+                    <button id="refresh-list-btn" class="text-sm text-blue-600 hover:underline">Atualizar Lista</button>
+                    <button id="back-to-initial-view-btn" class="text-sm text-blue-600 hover:underline">Voltar para o Início</button>
+                </div>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-4 mb-6">
+                <div class="flex-shrink-0">
+                    <span class="text-sm font-medium text-gray-700">Status Assinatura:</span>
+                    <div id="status-filter-buttons" class="mt-1 inline-flex rounded-md shadow-sm">
+                        <button data-status="todos" class="px-4 py-2 bg-blue-600 text-white border border-gray-300 rounded-l-md text-sm font-medium">Todos</button>
+                        <button data-status="assinado" class="px-4 py-2 bg-white border-t border-b border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium">Assinados</button>
+                        <button data-status="pendente" class="px-4 py-2 bg-white border border-gray-300 rounded-r-md text-gray-700 hover:bg-gray-50 text-sm font-medium">Pendentes</button>
+                    </div>
+                </div>
+                <div class="flex-grow">
+                     <label for="search-input" class="text-sm font-medium text-gray-700">Busca Universal:</label>
+                     <input type="text" id="search-input" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Nome, OS, status do serviço...">
+                </div>
+            </div>
+            <div id="document-list" class="space-y-4">
+                <p id="list-loading-feedback" class="text-center text-gray-500 py-8">Carregando documentos...</p>
+            </div>
+            <div id="pagination-controls" class="flex justify-between items-center mt-6 border-t pt-4">
+                <button id="prev-page-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md text-sm font-medium hover:bg-gray-300 btn-disabled">Anterior</button>
+                <span id="page-info" class="text-sm text-gray-600"></span>
+                <button id="next-page-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md text-sm font-medium hover:bg-gray-300 btn-disabled">Próxima</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="details-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-full overflow-y-auto p-6 relative">
+            <button id="close-modal-btn" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-3xl font-bold">&times;</button>
+            <h3 class="text-xl font-bold mb-4 border-b pb-2">Detalhes da Assinatura</h3>
+            <div id="modal-content" class="space-y-4 text-sm"></div>
+        </div>
+    </div>
+    <div id="delete-confirm-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6 relative">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">Confirmar Exclusão</h3>
+            <p class="text-sm text-gray-600 mb-4">Você está prestes a excluir este documento e todos os seus registros de assinatura permanentemente. Esta ação não pode ser desfeita.</p>
+            <div class="flex items-center mb-6">
+                <input id="delete-checkbox" type="checkbox" class="h-4 w-4 text-red-600 border-gray-300 rounded">
+                <label for="delete-checkbox" class="ml-2 block text-sm text-gray-900">Sim, eu entendo e quero excluir.</label>
+            </div>
+            <div class="flex justify-end gap-4">
+                <button id="cancel-delete-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md text-sm font-medium hover:bg-gray-300">Cancelar</button>
+                <button id="confirm-delete-btn" class="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium btn-disabled">Confirmar Exclusão</button>
+            </div>
+        </div>
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
