@@ -47,7 +47,13 @@
                 <button id="cancel-link-import-btn" class="text-sm text-gray-600 hover:underline">Cancelar</button>
             </div>
             <form id="link-import-form" class="space-y-4 mt-6">
-                <input type="url" id="doc-url-input" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="https://erp.tiny.com.br/doc.view?id=..." required>
+                <div class="relative">
+                    <input type="url" id="doc-url-input" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm pr-24" placeholder="https://erp.tiny.com.br/doc.view?id=..." required>
+                    <div class="absolute inset-y-0 right-0 flex items-center gap-1 pr-2">
+                        <button type="button" id="paste-link-btn" class="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded hover:bg-gray-300">Colar</button>
+                        <button type="button" id="clear-link-btn" class="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded hover:bg-gray-300">Limpar</button>
+                    </div>
+                </div>
                 <button type="submit" id="link-import-submit-btn" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
                     Importar Documento
                 </button>
