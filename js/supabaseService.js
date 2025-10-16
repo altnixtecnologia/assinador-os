@@ -4,7 +4,6 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 export const supabase = self.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // --- FUNÇÕES DO PAINEL ADMIN ---
-
 export async function getDocuments(page, itemsPerPage, filter, searchTerm) {
     const from = page * itemsPerPage;
     const to = from + itemsPerPage - 1;
@@ -13,7 +12,8 @@ export async function getDocuments(page, itemsPerPage, filter, searchTerm) {
         .from('documentos')
         .select(`
             id, created_at, status, cliente_email, nome_cliente, n_os, status_os, 
-            caminho_arquivo_storage, caminho_arquivo_assinado, link_assinatura
+            caminho_arquivo_storage, caminho_arquivo_assinado, link_assinatura,
+            assinaturas ( nome_signatario, cpf_cnpj_signatario, email_signatario, assinado_em, imagem_assinatura_base64, data_hora_local, google_user_id, ip_signatario )
         `, { count: 'exact' })
         .order('created_at', { ascending: false })
         .range(from, to);
@@ -22,7 +22,7 @@ export async function getDocuments(page, itemsPerPage, filter, searchTerm) {
         query = query.eq('status', filter);
     }
     if (searchTerm) {
-        query = query.or(`caminho_arquivo_storage.ilike.%${searchTerm}%,cliente_email.ilike.%${searchTerm}%,nome_cliente.ilike.%${searchTerm}%,n_os.ilike.%${searchTerm}%,status_os.ilike.%${searchTerm}%`);
+        query = query.or(`caminho_arquivo_storage.ilike.%${searchTerm}%,cliente_email.ilike.%${searchTerm}%,nome_cliente.ilike.%${searchTerm}%,n_os.ilike.%${searchTerm}%,status_os.ilike.%${searchTerm}%,assinaturas.nome_signatario.ilike.%${searchTerm}%`);
     }
 
     return await query;
@@ -40,7 +40,6 @@ export async function createDocumentRecord(documentData) {
     return data;
 }
 
-// NOVO: Função para salvar o link de assinatura no banco de dados
 export async function updateDocumentLink(docId, link) {
     const { error } = await supabase
         .from('documentos')
@@ -52,9 +51,16 @@ export async function updateDocumentLink(docId, link) {
 export async function deleteDocument(docId) {
     const { error: signError } = await supabase.from('assinaturas').delete().eq('documento_id', docId);
     if (signError) throw signError;
-
     const { error: docError } = await supabase.from('documentos').delete().eq('id', docId);
     if (docError) throw docError;
+}
+
+export async function importFromUrl(url) {
+    const { data, error } = await supabase.functions.invoke('import-from-url', {
+        body: { url },
+    });
+    if (error) throw error;
+    return data;
 }
 
 export function getPublicUrl(path) {
@@ -62,15 +68,12 @@ export function getPublicUrl(path) {
     return data.publicUrl;
 }
 
-
 // --- FUNÇÕES DA PÁGINA DE ASSINATURA ---
-
 export async function checkIfSigned(docId) {
     const { data, error } = await supabase
         .from('assinaturas')
         .select('id')
         .eq('documento_id', docId);
-
     if (error) {
         console.error("Erro em checkIfSigned:", error);
         return false;
