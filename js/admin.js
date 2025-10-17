@@ -10,6 +10,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const osFileInput = document.getElementById('os-file');
     const uploadInitialView = document.getElementById('initial-view');
     const showConsultationBtn = document.getElementById('show-consultation-btn');
+    const showLinkImportBtn = document.getElementById('show-link-import-btn');
+    const linkImportView = document.getElementById('link-import-view');
+    const linkImportForm = document.getElementById('link-import-form');
+    const docUrlInput = document.getElementById('doc-url-input');
+    const cancelLinkImportBtn = document.getElementById('cancel-link-import-btn');
+    const linkImportSubmitBtn = document.getElementById('link-import-submit-btn');
+    const importFeedback = document.getElementById('import-feedback');
+    const pasteLinkBtn = document.getElementById('paste-link-btn');
+    const clearLinkBtn = document.getElementById('clear-link-btn');
     const preparationView = document.getElementById('preparation-view');
     const cancelPreparationBtn = document.getElementById('cancel-preparation-btn');
     const instructionText = document.getElementById('instruction-text');
@@ -61,13 +70,106 @@ document.addEventListener('DOMContentLoaded', () => {
     let debounceTimer;
     let docIdParaExcluir = null;
     let extractedDataFromPdf = {};
-    let currentErpLink = null;
+    let currentErpLink = null; 
 
     // --- Funções de UI e Lógica Principal ---
-    function showFeedback(message, type = 'info') {
+    function renderInitialView() {
+        uploadInitialView.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                <div class="border rounded-lg p-6 flex flex-col items-center justify-center hover:shadow-lg transition-shadow">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-700">Enviar O.S. PDF</h2>
+                    <p class="text-gray-500 mb-6 text-sm">Faça o upload de um arquivo PDF do seu computador.</p>
+                    <label for="os-file" class="cursor-pointer bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition duration-300">
+                        Selecionar PDF
+                    </label>
+                </div>
+                <div class="border rounded-lg p-6 flex flex-col items-center justify-center hover:shadow-lg transition-shadow">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-700">Enviar O.S. Link</h2>
+                    <p class="text-gray-500 mb-6 text-sm">Cole o link compartilhável do seu sistema ERP.</p>
+                    <button id="show-link-import-btn-dynamic" class="bg-sky-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-sky-700 transition duration-300">
+                        Usar Link
+                    </button>
+                </div>
+            </div>
+            <button id="show-consultation-btn-dynamic" class="mt-12 mx-auto cursor-pointer text-gray-600 font-semibold py-2 px-6 rounded-lg hover:bg-gray-200 transition duration-300">
+                Consultar Documentos Enviados
+            </button>
+        `;
+        // Reatribui os event listeners aos botões dinâmicos
+        document.getElementById('show-link-import-btn-dynamic').addEventListener('click', showLinkImportScreen);
+        document.getElementById('show-consultation-btn-dynamic').addEventListener('click', showConsultationScreen);
+    }
+    
+    function showInitialView() {
+        linkImportView.classList.add('hidden');
+        preparationView.style.display = 'none';
+        consultationView.style.display = 'none';
+        uploadInitialView.style.display = 'block';
+        renderInitialView();
+    }
+    
+    function showLinkImportScreen() {
+        uploadInitialView.style.display = 'none';
+        linkImportView.classList.remove('hidden');
+        docUrlInput.value = '';
+        showFeedback('', 'info', importFeedback);
+    }
+
+    function showConsultationScreen() {
+        uploadInitialView.style.display = 'none';
+        linkImportView.classList.add('hidden');
+        preparationView.style.display = 'none';
+        consultationView.style.display = 'block';
+        carregarDocumentos();
+    }
+
+    async function startPreparationProcess(source, fileName = '', erpLink = null) {
+        currentErpLink = erpLink;
+        uploadInitialView.style.display = 'none';
+        linkImportView.classList.add('hidden');
+        consultationView.style.display = 'none';
+        preparationView.style.display = 'block';
+        showFeedback('Extraindo dados do PDF...', 'info');
+
+        try {
+            if (source instanceof File) {
+                currentFile = source;
+            } else { // É uma URL (path do storage)
+                const publicUrl = db.getPublicUrl(source);
+                const response = await fetch(publicUrl);
+                if (!response.ok) throw new Error(`Falha ao buscar PDF da URL.`);
+                const blob = await response.blob();
+                currentFile = new File([blob], fileName || 'documento.pdf', { type: 'application/pdf' });
+                currentFile.internalPath = source; 
+            }
+            
+            extractedDataFromPdf = await extractDataFromPdf(currentFile);
+            clienteNomeInput.value = extractedDataFromPdf.nome;
+            clienteTelefoneInput.value = extractedDataFromPdf.telefone;
+            clienteEmailInput.value = extractedDataFromPdf.email;
+            showFeedback('Dados extraídos! Prossiga com a marcação das assinaturas.', 'success');
+
+            const fileReader = new FileReader();
+            fileReader.onload = async function() {
+                const pdfBytes = new Uint8Array(this.result);
+                pdfDoc = await pdfjsLib.getDocument(pdfBytes).promise;
+                await renderPdfPreview();
+            };
+            fileReader.readAsArrayBuffer(currentFile);
+            
+            instructionText.textContent = "1/2: Desenhe a área para a assinatura do TÉCNICO.";
+            currentDrawingFor = 'tecnico';
+
+        } catch (error) {
+            showFeedback(`Erro ao processar documento: ${error.message}`, 'error');
+            setTimeout(showInitialView, 3000);
+        }
+    }
+
+    function showFeedback(message, type = 'info', element = feedbackMessage) {
         const colorClasses = { success: 'text-green-600', error: 'text-red-600', info: 'text-blue-600' };
-        feedbackMessage.textContent = message;
-        feedbackMessage.className = `mt-4 text-center text-sm ${colorClasses[type] || 'text-gray-600'}`;
+        element.textContent = message;
+        element.className = `mt-4 text-center text-sm ${colorClasses[type] || 'text-gray-600'}`;
     }
 
     function setLoading(isLoading) {
@@ -81,49 +183,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function resetPreparationView() {
-        preparationView.style.display = 'none';
-        consultationView.style.display = 'none';
-        uploadInitialView.style.display = 'block';
+        showInitialView();
         osFileInput.value = '';
+        docUrlInput.value = '';
         pdfDoc = null;
         currentFile = null;
         rects = { tecnico: null, cliente: null };
         pdfPreviewWrapper.innerHTML = '';
         showFeedback('', 'info');
         actionsContainer.classList.add('hidden');
-    }
-
-    async function handleFileSelect(event) {
-        const file = event.target.files[0];
-        if (!file || file.type !== "application/pdf") return;
-        
-        currentFile = file;
-        uploadInitialView.style.display = 'none';
-        consultationView.style.display = 'none';
-        preparationView.style.display = 'block';
-        
-        showFeedback('Extraindo dados do PDF...', 'info');
-        try {
-            extractedDataFromPdf = await extractDataFromPdf(file);
-            clienteNomeInput.value = extractedDataFromPdf.nome;
-            clienteTelefoneInput.value = extractedDataFromPdf.telefone;
-            clienteEmailInput.value = extractedDataFromPdf.email;
-            showFeedback('Dados extraídos! Prossiga com a marcação das assinaturas.', 'success');
-        } catch (error) {
-            showFeedback('Não foi possível ler os dados do PDF.', 'error');
-            console.error(error);
-        }
-
-        const fileReader = new FileReader();
-        fileReader.onload = async function() {
-            const pdfBytes = new Uint8Array(this.result);
-            pdfDoc = await pdfjsLib.getDocument(pdfBytes).promise;
-            await renderPdfPreview();
-        };
-        fileReader.readAsArrayBuffer(file);
-        
-        instructionText.textContent = "1/2: Desenhe a área para a assinatura do TÉCNICO.";
-        currentDrawingFor = 'tecnico';
     }
     
     async function renderPdfPreview() {
@@ -276,7 +344,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } else { // Pendente
                 statusHtml = `<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-800">Pendente ⏳</span>`;
                 actionsHtml = `<button class="download-btn text-sm text-blue-600 hover:underline" data-path="${doc.caminho_arquivo_storage}">Original</button>`;
-                // Sempre mostra o botão "Copiar Link" para pendentes.
                 actionsHtml += ` <button class="copy-link-btn text-sm text-purple-600 hover:underline" data-doc-id="${doc.id}">Copiar Link</button>`;
             }
 
@@ -392,14 +459,40 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     cancelPreparationBtn.addEventListener('click', resetPreparationView);
-    showConsultationBtn.addEventListener('click', () => {
-        uploadInitialView.style.display = 'none';
-        preparationView.style.display = 'none';
-        consultationView.style.display = 'block';
-        carregarDocumentos();
-    });
-    backToInitialViewBtn.addEventListener('click', resetPreparationView);
+    backToInitialViewBtn.addEventListener('click', showInitialView);
     refreshListBtn.addEventListener('click', carregarDocumentos);
+    cancelLinkImportBtn.addEventListener('click', showInitialView);
+
+    linkImportForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const url = docUrlInput.value;
+        if (!url) return;
+        linkImportSubmitBtn.disabled = true;
+        linkImportSubmitBtn.textContent = 'Importando...';
+        showFeedback('Buscando e salvando o PDF...', 'info', importFeedback);
+        try {
+            const { path, name, originalUrl } = await db.importFromUrl(url);
+            await startPreparationProcess(path, name, originalUrl);
+        } catch (error) {
+            showFeedback(`Erro: ${error.message}`, 'error', importFeedback);
+        } finally {
+            linkImportSubmitBtn.disabled = false;
+            linkImportSubmitBtn.textContent = 'Importar Documento';
+        }
+    });
+
+    pasteLinkBtn.addEventListener('click', async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            docUrlInput.value = text;
+        } catch (err) {
+            alert('Não foi possível ler a área de transferência. Verifique as permissões do navegador.');
+        }
+    });
+
+    clearLinkBtn.addEventListener('click', () => {
+        docUrlInput.value = '';
+    });
 
     uploadForm.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -422,22 +515,21 @@ document.addEventListener('DOMContentLoaded', () => {
              const pageDim = pageDimensions[pageNum-1];
              const canvasWidth = document.getElementById('pdf-background-canvas').width;
              const scale = pageDim.width / canvasWidth;
-             return {
-                 page: pageNum, 
-                 x: rect.x * scale,
-                 y: pageDim.height - ((rect.y - yOffset) * scale) - (rect.height * scale),
-                 width: rect.width * scale,
-                 height: rect.height * scale
-             };
+             return { page: pageNum, x: rect.x * scale, y: pageDim.height - ((rect.y - yOffset) * scale) - (rect.height * scale), width: rect.width * scale, height: rect.height * scale };
         };
 
         setLoading(true);
         try {
-            const fileName = `${Date.now()}-${sanitizarNomeArquivo(currentFile.name)}`;
-            await db.uploadFile(fileName, currentFile);
+            let storagePath;
+            if (currentFile.internalPath) {
+                storagePath = currentFile.internalPath;
+            } else {
+                storagePath = `${Date.now()}-${sanitizarNomeArquivo(currentFile.name)}`;
+                await db.uploadFile(storagePath, currentFile);
+            }
             
             const documentRecord = {
-                caminho_arquivo_storage: fileName,
+                caminho_arquivo_storage: storagePath,
                 nome_cliente: clienteNomeInput.value || null,
                 telefone_cliente: clienteTelefoneInput.value || null,
                 cliente_email: clienteEmailInput.value || null,
@@ -489,9 +581,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target.classList.contains('ver-detalhes-btn')) {
             const docId = target.dataset.docId;
             const doc = allDocumentsData.find(d => d.id.toString() === docId);
-            if (doc) {
-                abrirModalDetalhes(doc);
-            }
+            if (doc) abrirModalDetalhes(doc);
         }
         if (target.classList.contains('excluir-btn')) {
             abrirExclusaoModal(target.dataset.docId);
@@ -549,12 +639,7 @@ document.addEventListener('DOMContentLoaded', () => {
     confirmDeleteBtn.addEventListener('click', executarExclusao);
 
     navToNewBtn.addEventListener('click', resetPreparationView);
-    navToConsultBtn.addEventListener('click', () => {
-        uploadInitialView.style.display = 'none';
-        preparationView.style.display = 'none';
-        consultationView.style.display = 'block';
-        carregarDocumentos();
-    });
+    navToConsultBtn.addEventListener('click', showConsultationScreen);
 
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
@@ -562,4 +647,31 @@ document.addEventListener('DOMContentLoaded', () => {
             deleteConfirmModal.classList.remove('active');
         }
     });
+
+    // --- Inicialização da Aplicação ---
+    async function initializeApp() {
+        const importedHtml = localStorage.getItem('importedHtml');
+        const originalUrl = localStorage.getItem('originalUrl');
+
+        if (importedHtml && originalUrl) {
+            localStorage.removeItem('importedHtml');
+            localStorage.removeItem('originalUrl');
+            
+            showInitialView(); 
+            const initialViewContent = document.getElementById('initial-view');
+            initialViewContent.innerHTML = `<div class="text-center py-8"><p class="text-lg">Processando documento importado do ERP...</p><div class="loader mt-4 mx-auto"></div></div>`;
+
+            try {
+                const { path, name } = await db.convertHtmlToPdf(importedHtml, originalUrl);
+                await startPreparationProcess(path, name, originalUrl);
+            } catch (error) {
+                alert(`Erro ao processar o documento importado: ${error.message}`);
+                showInitialView();
+            }
+        } else {
+            showInitialView();
+        }
+    }
+
+    initializeApp();
 });
