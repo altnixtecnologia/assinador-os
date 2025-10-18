@@ -65,7 +65,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let docIdParaExcluir = null;
     let extractedDataFromPdf = {};
 
-    // --- Funções de UI e Lógica Principal ---
     function showFeedback(message, type = 'info') {
         const colorClasses = { success: 'text-green-600', error: 'text-red-600', info: 'text-blue-600' };
         feedbackMessage.textContent = message;
