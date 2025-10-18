@@ -97,7 +97,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleFileSelect(file) {
-        if (!file || file.type !== "application/pdf") return;
+        if (!file || file.type !== "application/pdf") {
+            alert("O arquivo recebido não é um PDF válido. Verifique o console para mais detalhes.");
+            return;
+        }
         
         currentFile = file;
         uploadInitialView.style.display = 'none';
@@ -119,8 +122,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileReader = new FileReader();
         fileReader.onload = async function() {
             const pdfBytes = new Uint8Array(this.result);
-            pdfDoc = await pdfjsLib.getDocument(pdfBytes).promise;
-            await renderPdfPreview();
+            try {
+                pdfDoc = await pdfjsLib.getDocument(pdfBytes).promise;
+                await renderPdfPreview();
+            } catch (pdfError) {
+                showFeedback('Erro: O arquivo PDF retornado pela API é inválido.', 'error');
+                console.error("Erro ao carregar o PDF:", pdfError);
+                resetPreparationView();
+            }
         };
         fileReader.readAsArrayBuffer(file);
         
@@ -273,20 +282,17 @@ document.addEventListener('DOMContentLoaded', () => {
             card.className = 'border rounded-lg p-4 bg-gray-50 shadow-sm';
             const dataEnvio = new Date(doc.created_at).toLocaleDateString('pt-BR');
             const nomeArquivoOriginal = doc.caminho_arquivo_storage.split('-').slice(1).join('-') || doc.caminho_arquivo_storage;
-            
             let statusHtml = '';
             let actionsHtml = '';
-
             if (doc.status === 'assinado') {
                 statusHtml = `<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-green-100 text-green-800">Assinado ✅</span>`;
                 actionsHtml = `<button class="download-btn text-sm text-blue-600 hover:underline" data-path="${doc.caminho_arquivo_storage}">Original</button>
                                ${doc.caminho_arquivo_assinado ? `<button class="download-btn text-sm text-green-600 hover:underline" data-path="${doc.caminho_arquivo_assinado}">Assinado</button>` : ''}`;
-            } else { 
+            } else {
                 statusHtml = `<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-800">Pendente ⏳</span>`;
                 actionsHtml = `<button class="download-btn text-sm text-blue-600 hover:underline" data-path="${doc.caminho_arquivo_storage}">Original</button>
                                <button class="copy-link-btn text-sm text-purple-600 hover:underline" data-doc-id="${doc.id}">Copiar Link</button>`;
             }
-
             card.innerHTML = `<div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                                 <div class="flex-grow min-w-0">
                                     <p class="font-bold text-gray-800 break-all">${nomeArquivoOriginal}</p>
@@ -396,7 +402,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await handleFileSelect(pdfFile);
     
         } catch (err) {
-            alert(`Erro ao buscar o documento. Verifique o console para mais detalhes. Erro: ${err.message}`);
+            alert(`Erro ao buscar o documento: ${err.message}`);
             console.error(err);
         } finally {
             fetchFromUrlBtn.disabled = false;
@@ -413,6 +419,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     uploadForm.addEventListener('submit', async (event) => {
         event.preventDefault();
+
+        if (!currentFile) {
+            showFeedback("Nenhum arquivo PDF para enviar.", "error");
+            return;
+        }
 
         if ((!skipTecnicoCheckbox.checked && !rects.tecnico) || !rects.cliente) {
             showFeedback("Defina todas as áreas de assinatura necessárias.", "error");
@@ -512,7 +523,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target) {
             currentPage = 0;
             currentStatusFilter = target.dataset.status;
-            statusFilterButtons.querySelectorAll('button').forEach(btn => btn.classList.remove('bg-blue-600', 'text-white'));
+            statusFilterButtons.querySelectorAll('button').forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('bg-white', 'text-gray-700', 'hover:bg-gray-50');
+            });
+            target.classList.remove('bg-white', 'text-gray-700', 'hover:bg-gray-50');
             target.classList.add('bg-blue-600', 'text-white');
             carregarDocumentos();
         }
