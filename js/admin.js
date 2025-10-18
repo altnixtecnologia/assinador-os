@@ -3,8 +3,7 @@ import { SITE_BASE_URL, ITENS_PER_PAGE } from './config.js';
 import * as db from './supabaseService.js';
 import { setupPdfWorker, extractDataFromPdf } from './pdfHandler.js';
 
-// Mantemos o setup para o upload manual, mas não será usado na busca por URL
-setupPdfWorker(); 
+setupPdfWorker();
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Elementos da UI ---
@@ -51,8 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- Estado do Aplicativo ---
     let pdfDoc = null;
-    let currentFile = null; // Usado para upload manual
-    let currentStoragePath = null; // Usado para busca por URL
+    let currentFile = null;
     let currentDrawingFor = 'tecnico';
     let isDrawing = false;
     let startCoords = { x: 0, y: 0 };
@@ -92,20 +90,17 @@ document.addEventListener('DOMContentLoaded', () => {
         osUrlInput.value = '';
         pdfDoc = null;
         currentFile = null;
-        currentStoragePath = null;
         rects = { tecnico: null, cliente: null };
         pdfPreviewWrapper.innerHTML = '';
         showFeedback('', 'info');
         actionsContainer.classList.add('hidden');
-        skipTecnicoCheckbox.checked = false;
+        if (skipTecnicoCheckbox) skipTecnicoCheckbox.checked = false;
     }
 
-    // Função para lidar com o upload manual de arquivos (lógica antiga)
     async function handleFileSelect(file) {
         if (!file || file.type !== "application/pdf") return;
         
         currentFile = file;
-        currentStoragePath = null; // Garante que estamos no modo manual
         uploadInitialView.style.display = 'none';
         consultationView.style.display = 'none';
         preparationView.style.display = 'block';
@@ -132,30 +127,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         updateInstructionText();
     }
-
-    // NOVA função para lidar com a resposta da Edge Function
-    async function handleDataResponse(data) {
-        currentFile = null; // Garante que estamos no modo URL
-        currentStoragePath = data.storagePath;
-        extractedDataFromPdf = data.extractedData;
-
-        // Preenche os campos do formulário
-        clienteNomeInput.value = data.extractedData.nome;
-        clienteTelefoneInput.value = data.extractedData.telefone;
-        clienteEmailInput.value = data.extractedData.email;
-
-        showFeedback('Documento e dados recebidos! Prossiga com a marcação.', 'success');
-        
-        // Carrega e renderiza o PDF a partir do link do Storage
-        const publicUrl = db.getPublicUrl(data.storagePath);
-        pdfDoc = await pdfjsLib.getDocument(publicUrl).promise;
-        await renderPdfPreview();
-        
-        updateInstructionText();
-    }
     
     function updateInstructionText() {
-        if (skipTecnicoCheckbox.checked) {
+        if (skipTecnicoCheckbox && skipTecnicoCheckbox.checked) {
             instructionText.textContent = "Área do Técnico pulada. Desenhe a área para a assinatura do CLIENTE.";
             currentDrawingFor = 'cliente';
         } else {
@@ -306,37 +280,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (doc.status === 'assinado') {
                 statusHtml = `<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-green-100 text-green-800">Assinado ✅</span>`;
-                const assinatura = doc.assinaturas && doc.assinaturas.length > 0 ? doc.assinaturas[0] : null;
-                actionsHtml = `
-                    <button class="download-btn text-sm text-blue-600 hover:underline" data-path="${doc.caminho_arquivo_storage}">Original</button>
-                    ${doc.caminho_arquivo_assinado ? `<button class="download-btn text-sm text-green-600 hover:underline" data-path="${doc.caminho_arquivo_assinado}">Assinado</button>` : ''}
-                    ${assinatura ? `<button class="ver-detalhes-btn text-sm text-gray-600 hover:underline" data-doc-id="${doc.id}">Detalhes</button>` : ''}
-                `;
-            } else { // Pendente
+                actionsHtml = `<button class="download-btn text-sm text-blue-600 hover:underline" data-path="${doc.caminho_arquivo_storage}">Original</button>
+                               ${doc.caminho_arquivo_assinado ? `<button class="download-btn text-sm text-green-600 hover:underline" data-path="${doc.caminho_arquivo_assinado}">Assinado</button>` : ''}`;
+            } else { 
                 statusHtml = `<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-800">Pendente ⏳</span>`;
-                actionsHtml = `<button class="download-btn text-sm text-blue-600 hover:underline" data-path="${doc.caminho_arquivo_storage}">Original</button>`;
-                actionsHtml += ` <button class="copy-link-btn text-sm text-purple-600 hover:underline" data-doc-id="${doc.id}">Copiar Link</button>`;
+                actionsHtml = `<button class="download-btn text-sm text-blue-600 hover:underline" data-path="${doc.caminho_arquivo_storage}">Original</button>
+                               <button class="copy-link-btn text-sm text-purple-600 hover:underline" data-doc-id="${doc.id}">Copiar Link</button>`;
             }
 
-            card.innerHTML = `
-                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                    <div class="flex-grow min-w-0">
-                        <p class="font-bold text-gray-800 break-all">${nomeArquivoOriginal}</p>
-                        <p class="text-sm text-gray-500 truncate">${doc.nome_cliente ? `Cliente: ${doc.nome_cliente}` : ''}</p>
-                        ${doc.n_os ? `<p class="text-sm text-gray-500 font-semibold">OS N°: ${doc.n_os}</p>` : ''}
-                    </div>
-                    <div class="flex-shrink-0 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                        <div class="flex flex-col items-start sm:items-end text-right">
-                            ${statusHtml}
-                            ${doc.status_os ? `<span class="text-xs font-semibold mt-1 text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full" title="Status do Serviço">${doc.status_os}</span>` : ''}
-                        </div>
-                        <span class="text-sm text-gray-600">Enviado em: ${dataEnvio}</span>
-                        <div class="flex gap-2 flex-wrap">
-                            ${actionsHtml}
-                            <button class="excluir-btn text-sm text-red-600 hover:underline" data-doc-id="${doc.id}">Excluir</button>
-                        </div>
-                    </div>
-                </div>`;
+            card.innerHTML = `<div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                                <div class="flex-grow min-w-0">
+                                    <p class="font-bold text-gray-800 break-all">${nomeArquivoOriginal}</p>
+                                    <p class="text-sm text-gray-500 truncate">${doc.nome_cliente ? `Cliente: ${doc.nome_cliente}` : ''}</p>
+                                    ${doc.n_os ? `<p class="text-sm text-gray-500 font-semibold">OS N°: ${doc.n_os}</p>` : ''}
+                                </div>
+                                <div class="flex-shrink-0 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                    <div class="flex flex-col items-start sm:items-end text-right">
+                                        ${statusHtml}
+                                        ${doc.status_os ? `<span class="text-xs font-semibold mt-1 text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full" title="Status do Serviço">${doc.status_os}</span>` : ''}
+                                    </div>
+                                    <span class="text-sm text-gray-600">Enviado em: ${dataEnvio}</span>
+                                    <div class="flex gap-2 flex-wrap">${actionsHtml}
+                                        <button class="excluir-btn text-sm text-red-600 hover:underline" data-doc-id="${doc.id}">Excluir</button>
+                                    </div>
+                                </div>
+                              </div>`;
             documentList.appendChild(card);
         });
     }
@@ -355,11 +323,10 @@ document.addEventListener('DOMContentLoaded', () => {
         confirmDeleteBtn.textContent = 'Excluindo...';
         try {
             await db.deleteDocument(docIdParaExcluir);
-            showFeedback('Documento excluído com sucesso!', 'success');
             fecharModalExclusao();
             await carregarDocumentos();
         } catch (error) {
-            showFeedback(`Erro ao excluir o documento: ${error.message}`, 'error');
+            alert(`Erro ao excluir o documento: ${error.message}`);
         } finally {
             confirmDeleteBtn.disabled = false;
             confirmDeleteBtn.textContent = 'Confirmar Exclusão';
@@ -370,33 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
         docIdParaExcluir = null;
         deleteConfirmModal.classList.remove('active');
     }
-
-    function abrirModalDetalhes(doc) {
-        const assinatura = doc.assinaturas && doc.assinaturas.length > 0 ? doc.assinaturas[0] : null;
-        modalContent.innerHTML = `
-            <h4 class="font-bold">Documento</h4>
-            <p><strong>Nome Original:</strong> ${doc.caminho_arquivo_storage.split('-').slice(1).join('-')}</p>
-            <p><strong>Enviado em:</strong> ${new Date(doc.created_at).toLocaleString('pt-BR')}</p>
-            <p><strong>Nº da O.S.:</strong> ${doc.n_os || 'Não informado'}</p>
-            <p><strong>Status do Serviço:</strong> ${doc.status_os || 'Não informado'}</p>
-            <p><strong>Cliente:</strong> ${doc.nome_cliente || 'Não informado'}</p>
-            ${assinatura ? `
-            <hr class="my-4">
-            <h4 class="font-bold">Dados da Assinatura</h4>
-            <p><strong>Nome do Assinante:</strong> ${assinatura.nome_signatario || 'Não informado'}</p>
-            <p><strong>Email:</strong> ${assinatura.email_signatario || 'Não informado'}</p>
-            <p><strong>CPF/CNPJ:</strong> ${assinatura.cpf_cnpj_signatario || 'Não informado'}</p>
-            <p><strong>Data da Assinatura:</strong> ${assinatura.data_hora_local || new Date(assinatura.assinado_em).toLocaleString('pt-BR')}</p>
-            <p><strong>ID Google:</strong> ${assinatura.google_user_id || 'Não informado'}</p>
-            <p><strong>Endereço IP:</strong> ${assinatura.ip_signatario || 'Não informado'}</p>
-            <div>
-                <p><strong>Assinatura Gráfica:</strong></p>
-                <img src="${assinatura.imagem_assinatura_base64}" class="border mt-2 w-full max-w-sm" alt="Assinatura">
-            </div>` : ''}
-        `;
-        detailsModal.classList.add('active');
-    }
-
+    
     function atualizarControlesPaginacao() {
         const totalPages = Math.ceil(totalDocuments / ITENS_PER_PAGE);
         pageInfo.textContent = totalDocuments > 0 ? `Página ${currentPage + 1} de ${totalPages || 1}` : 'Nenhum resultado';
@@ -429,6 +370,47 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     backToInitialViewBtn.addEventListener('click', resetPreparationView);
     refreshListBtn.addEventListener('click', carregarDocumentos);
+
+    fetchFromUrlBtn.addEventListener('click', async () => {
+        const url = osUrlInput.value.trim();
+        if (!url) {
+            alert('Por favor, insira uma URL válida.');
+            return;
+        }
+    
+        fetchFromUrlBtn.disabled = true;
+        fetchFromUrlBtn.textContent = 'Buscando...';
+    
+        try {
+            const { data, error } = await db.supabase.functions.invoke('url-to-pdf', {
+                body: { url: url },
+                responseType: 'blob'
+            });
+    
+            if (error) throw error;
+            
+            const urlParams = new URLSearchParams(new URL(url).search);
+            const docId = urlParams.get('id') || `doc-${Date.now()}`;
+            const fileName = `${docId}.pdf`;
+            const pdfFile = new File([data], fileName, { type: 'application/pdf' });
+            
+            await handleFileSelect(pdfFile);
+    
+        } catch (err) {
+            alert(`Erro ao buscar o documento. Verifique o console para mais detalhes. Erro: ${err.message}`);
+            console.error(err);
+        } finally {
+            fetchFromUrlBtn.disabled = false;
+            fetchFromUrlBtn.textContent = 'Buscar';
+        }
+    });
+
+    osFileInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            handleFileSelect(file);
+        }
+    });
 
     uploadForm.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -464,18 +446,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         setLoading(true);
         try {
-            let storagePath;
-
-            if (currentFile) { // Modo de upload manual
-                const fileName = `${Date.now()}-${sanitizarNomeArquivo(currentFile.name)}`;
-                const uploadData = await db.uploadFile(fileName, currentFile);
-                storagePath = uploadData.path;
-            } else { // Modo de busca por URL
-                storagePath = currentStoragePath;
-            }
+            const fileName = `${Date.now()}-${sanitizarNomeArquivo(currentFile.name)}`;
+            const uploadData = await db.uploadFile(fileName, currentFile);
             
             const documentRecord = {
-                caminho_arquivo_storage: storagePath,
+                caminho_arquivo_storage: uploadData.path,
                 nome_cliente: clienteNomeInput.value || null,
                 telefone_cliente: clienteTelefoneInput.value || null,
                 cliente_email: clienteEmailInput.value || null,
@@ -519,19 +494,7 @@ document.addEventListener('DOMContentLoaded', () => {
     documentList.addEventListener('click', async (e) => {
         const target = e.target;
         if (target.classList.contains('download-btn')) {
-            const path = target.dataset.path;
-            const publicUrl = db.getPublicUrl(path);
-            window.open(publicUrl, '_blank');
-        }
-        if (target.classList.contains('ver-detalhes-btn')) {
-            const docId = target.dataset.docId;
-            const doc = allDocumentsData.find(d => d.id.toString() === docId);
-            if (doc) {
-                abrirModalDetalhes(doc);
-            }
-        }
-        if (target.classList.contains('excluir-btn')) {
-            abrirExclusaoModal(target.dataset.docId);
+            window.open(db.getPublicUrl(target.dataset.path), '_blank');
         }
         if (target.classList.contains('copy-link-btn')) {
             const docId = target.dataset.docId;
@@ -540,18 +503,17 @@ document.addEventListener('DOMContentLoaded', () => {
             target.textContent = 'Copiado!';
             setTimeout(() => { target.textContent = 'Copiar Link'; }, 2000);
         }
+        if (target.classList.contains('excluir-btn')) {
+            abrirExclusaoModal(target.dataset.docId);
+        }
     });
     
     statusFilterButtons.addEventListener('click', (e) => {
-        const target = e.target;
-        if (target.tagName === 'BUTTON') {
+        const target = e.target.closest('button');
+        if (target) {
             currentPage = 0;
             currentStatusFilter = target.dataset.status;
-            statusFilterButtons.querySelectorAll('button').forEach(btn => {
-                btn.classList.remove('bg-blue-600', 'text-white');
-                btn.classList.add('bg-white', 'text-gray-700', 'hover:bg-gray-50');
-            });
-            target.classList.remove('bg-white', 'text-gray-700', 'hover:bg-gray-50');
+            statusFilterButtons.querySelectorAll('button').forEach(btn => btn.classList.remove('bg-blue-600', 'text-white'));
             target.classList.add('bg-blue-600', 'text-white');
             carregarDocumentos();
         }
@@ -604,49 +566,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    osFileInput.addEventListener('change', (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            handleFileSelect(file);
-        }
-    });
-    
-    fetchFromUrlBtn.addEventListener('click', async () => {
-        const url = osUrlInput.value.trim();
-        if (!url) {
-            alert('Por favor, insira uma URL válida.');
-            return;
-        }
-    
-        fetchFromUrlBtn.disabled = true;
-        fetchFromUrlBtn.textContent = 'Buscando...';
-        showFeedback('Buscando e processando documento na nuvem...', 'info');
-    
-        try {
-            const { data, error } = await db.supabase.functions.invoke('url-to-pdf', {
-                body: { url: url }
-            });
-    
-            if (error) throw error;
-            
-            uploadInitialView.style.display = 'none';
-            consultationView.style.display = 'none';
-            preparationView.style.display = 'block';
-            await handleDataResponse(data);
-    
-        } catch (err) {
-            alert(`Erro ao buscar o documento: ${err.message || JSON.stringify(err)}`);
-            console.error(err);
-            resetPreparationView();
-        } finally {
-            fetchFromUrlBtn.disabled = false;
-            fetchFromUrlBtn.textContent = 'Buscar';
-        }
-    });
-
-    skipTecnicoCheckbox.addEventListener('change', () => {
-        rects = { tecnico: null, cliente: null };
-        redrawAll();
-        updateInstructionText();
-    });
+    if (skipTecnicoCheckbox) {
+        skipTecnicoCheckbox.addEventListener('change', () => {
+            rects = { tecnico: null, cliente: null };
+            redrawAll();
+            updateInstructionText();
+        });
+    }
 });
