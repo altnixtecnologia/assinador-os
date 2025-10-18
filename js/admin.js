@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Estado do Aplicativo ---
     let pdfDoc = null;
     let currentFile = null;
+    let currentStoragePath = null;
     let currentDrawingFor = 'tecnico';
     let isDrawing = false;
     let startCoords = { x: 0, y: 0 };
@@ -89,6 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
         osUrlInput.value = '';
         pdfDoc = null;
         currentFile = null;
+        currentStoragePath = null;
         rects = { tecnico: null, cliente: null };
         pdfPreviewWrapper.innerHTML = '';
         showFeedback('', 'info');
@@ -96,44 +98,39 @@ document.addEventListener('DOMContentLoaded', () => {
         if (skipTecnicoCheckbox) skipTecnicoCheckbox.checked = false;
     }
 
-    async function handleFileSelect(file) {
-        if (!file || file.type !== "application/pdf") {
-            alert("O arquivo recebido não é um PDF válido. Verifique o console para mais detalhes.");
-            return;
-        }
-        
-        currentFile = file;
+    async function preparePdfForSigning(pdfSource) {
         uploadInitialView.style.display = 'none';
         consultationView.style.display = 'none';
         preparationView.style.display = 'block';
         
-        showFeedback('Extraindo dados do PDF...', 'info');
+        showFeedback('Carregando e extraindo dados do PDF...', 'info');
+
         try {
-            extractedDataFromPdf = await extractDataFromPdf(file);
+            pdfDoc = await pdfjsLib.getDocument(pdfSource).promise;
+            
+            let fileForExtraction;
+            if (typeof pdfSource === 'string') {
+                const response = await fetch(pdfSource);
+                const blob = await response.blob();
+                fileForExtraction = new File([blob], "documento.pdf", { type: "application/pdf" });
+            } else {
+                fileForExtraction = pdfSource;
+            }
+
+            extractedDataFromPdf = await extractDataFromPdf(fileForExtraction);
             clienteNomeInput.value = extractedDataFromPdf.nome;
             clienteTelefoneInput.value = extractedDataFromPdf.telefone;
             clienteEmailInput.value = extractedDataFromPdf.email;
             showFeedback('Dados extraídos! Prossiga com a marcação das assinaturas.', 'success');
-        } catch (error) {
-            showFeedback('Não foi possível ler os dados do PDF.', 'error');
-            console.error(error);
-        }
+            
+            await renderPdfPreview();
+            updateInstructionText();
 
-        const fileReader = new FileReader();
-        fileReader.onload = async function() {
-            const pdfBytes = new Uint8Array(this.result);
-            try {
-                pdfDoc = await pdfjsLib.getDocument(pdfBytes).promise;
-                await renderPdfPreview();
-            } catch (pdfError) {
-                showFeedback('Erro: O arquivo PDF retornado pela API é inválido.', 'error');
-                console.error("Erro ao carregar o PDF:", pdfError);
-                resetPreparationView();
-            }
-        };
-        fileReader.readAsArrayBuffer(file);
-        
-        updateInstructionText();
+        } catch (error) {
+            showFeedback('Não foi possível carregar ou ler os dados do PDF.', 'error');
+            console.error(error);
+            resetPreparationView();
+        }
     }
     
     function updateInstructionText() {
@@ -151,36 +148,37 @@ document.addEventListener('DOMContentLoaded', () => {
         pdfPreviewWrapper.innerHTML = '';
         pageDimensions = [];
         const containerWidth = pdfPreviewWrapper.clientWidth;
-        let totalHeight = 0;
-        const pages = [];
-        for (let i = 1; i <= pdfDoc.numPages; i++) {
-            const page = await pdfDoc.getPage(i);
-            pages.push(page);
-            const viewport = page.getViewport({ scale: 1.0 });
-            const scaledHeight = (containerWidth / viewport.width) * viewport.height;
-            pageDimensions.push({ num: i, width: viewport.width, height: viewport.height, scaledHeight });
-            totalHeight += scaledHeight;
-        }
-        const bgCanvas = document.createElement('canvas');
-        bgCanvas.id = 'pdf-background-canvas';
+        
         const drawCanvas = document.createElement('canvas');
         drawCanvas.id = 'pdf-drawing-canvas';
-        pdfPreviewWrapper.appendChild(bgCanvas);
-        pdfPreviewWrapper.appendChild(drawCanvas);
-        bgCanvas.width = drawCanvas.width = containerWidth;
-        bgCanvas.height = drawCanvas.height = totalHeight;
         drawCanvas.style.position = 'absolute';
         drawCanvas.style.top = '0';
         drawCanvas.style.left = '0';
-        const bgCtx = bgCanvas.getContext('2d');
-        let currentY = 0;
-        for (let i = 0; i < pages.length; i++) {
-            const page = pages[i];
-            const scaledViewport = page.getViewport({ scale: containerWidth / page.getViewport({ scale: 1.0 }).width });
-            const renderContext = { canvasContext: bgCtx, transform: [1, 0, 0, 1, 0, currentY], viewport: scaledViewport };
-            await page.render(renderContext).promise;
-            currentY += scaledViewport.height;
+        drawCanvas.style.zIndex = '10';
+        pdfPreviewWrapper.appendChild(drawCanvas);
+
+        let totalHeight = 0;
+        for (let i = 1; i <= pdfDoc.numPages; i++) {
+            const page = await pdfDoc.getPage(i);
+            const viewport = page.getViewport({ scale: 1.0 });
+            const scale = containerWidth / viewport.width;
+            const scaledViewport = page.getViewport({ scale });
+            
+            const canvas = document.createElement('canvas');
+            canvas.height = scaledViewport.height;
+            canvas.width = scaledViewport.width;
+            canvas.style.display = 'block';
+            pdfPreviewWrapper.appendChild(canvas);
+
+            pageDimensions.push({ num: i, width: viewport.width, height: viewport.height, scaledHeight: scaledViewport.height });
+            totalHeight += scaledViewport.height;
+
+            await page.render({ canvasContext: canvas.getContext('2d'), viewport: scaledViewport }).promise;
         }
+
+        drawCanvas.width = containerWidth;
+        drawCanvas.height = totalHeight;
+
         drawCanvas.addEventListener('mousedown', startDrawing);
         drawCanvas.addEventListener('mousemove', draw);
         drawCanvas.addEventListener('mouseup', stopDrawing);
@@ -255,7 +253,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     async function carregarDocumentos() {
         listLoadingFeedback.style.display = 'block';
-        listLoadingFeedback.textContent = "Carregando documentos...";
         documentList.innerHTML = '';
         try {
             const { data, error, count } = await db.getDocuments(currentPage, ITENS_PER_PAGE, currentStatusFilter, currentSearchTerm);
@@ -265,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderizarLista(data);
             atualizarControlesPaginacao();
         } catch (error) {
-            documentList.innerHTML = `<p class="text-center text-red-500 py-8">Erro ao carregar documentos: ${error.message}</p>`;
+            documentList.innerHTML = `<p class="text-center text-red-500 py-8">Erro: ${error.message}</p>`;
         } finally {
             listLoadingFeedback.style.display = 'none';
         }
@@ -389,21 +386,19 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const { data, error } = await db.supabase.functions.invoke('url-to-pdf', {
                 body: { url: url },
-                responseType: 'blob'
             });
     
             if (error) throw error;
-            
-            const urlParams = new URLSearchParams(new URL(url).search);
-            const docId = urlParams.get('id') || `doc-${Date.now()}`;
-            const fileName = `${docId}.pdf`;
-            const pdfFile = new File([data], fileName, { type: 'application/pdf' });
-            
-            await handleFileSelect(pdfFile);
+            if (!data.storagePath) throw new Error("A resposta da função não continha um caminho de arquivo válido.");
+
+            currentStoragePath = data.storagePath; 
+            const publicUrl = db.getPublicUrl(data.storagePath);
+            await preparePdfForSigning(publicUrl);
     
         } catch (err) {
             alert(`Erro ao buscar o documento: ${err.message}`);
             console.error(err);
+            resetPreparationView();
         } finally {
             fetchFromUrlBtn.disabled = false;
             fetchFromUrlBtn.textContent = 'Buscar';
@@ -413,17 +408,13 @@ document.addEventListener('DOMContentLoaded', () => {
     osFileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (file) {
-            handleFileSelect(file);
+            currentStoragePath = null;
+            preparePdfForSigning(file);
         }
     });
 
     uploadForm.addEventListener('submit', async (event) => {
         event.preventDefault();
-
-        if (!currentFile) {
-            showFeedback("Nenhum arquivo PDF para enviar.", "error");
-            return;
-        }
 
         if ((!skipTecnicoCheckbox.checked && !rects.tecnico) || !rects.cliente) {
             showFeedback("Defina todas as áreas de assinatura necessárias.", "error");
@@ -443,7 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
              }
              if(pageNum === 0) pageNum = pageDimensions.length;
              const pageDim = pageDimensions[pageNum-1];
-             const canvasWidth = document.getElementById('pdf-background-canvas').width;
+             const canvasWidth = pdfPreviewWrapper.clientWidth;
              const scale = pageDim.width / canvasWidth;
              return {
                  page: pageNum, 
@@ -456,11 +447,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         setLoading(true);
         try {
-            const fileName = `${Date.now()}-${sanitizarNomeArquivo(currentFile.name)}`;
-            const uploadData = await db.uploadFile(fileName, currentFile);
+            let finalStoragePath;
+            if (currentStoragePath) {
+                finalStoragePath = currentStoragePath;
+            } else if (currentFile) {
+                const fileName = `${Date.now()}-${sanitizarNomeArquivo(currentFile.name)}`;
+                const uploadData = await db.uploadFile(fileName, currentFile);
+                finalStoragePath = uploadData.path;
+            } else {
+                throw new Error("Nenhum arquivo para processar.");
+            }
             
             const documentRecord = {
-                caminho_arquivo_storage: uploadData.path,
+                caminho_arquivo_storage: finalStoragePath,
                 nome_cliente: clienteNomeInput.value || null,
                 telefone_cliente: clienteTelefoneInput.value || null,
                 cliente_email: clienteEmailInput.value || null,
