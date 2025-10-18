@@ -3,7 +3,8 @@ import { SITE_BASE_URL, ITENS_PER_PAGE } from './config.js';
 import * as db from './supabaseService.js';
 import { setupPdfWorker, extractDataFromPdf } from './pdfHandler.js';
 
-setupPdfWorker();
+// Mantemos o setup para o upload manual, mas não será usado na busca por URL
+setupPdfWorker(); 
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Elementos da UI ---
@@ -50,7 +51,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- Estado do Aplicativo ---
     let pdfDoc = null;
-    let currentFile = null;
+    let currentFile = null; // Usado para upload manual
+    let currentStoragePath = null; // Usado para busca por URL
     let currentDrawingFor = 'tecnico';
     let isDrawing = false;
     let startCoords = { x: 0, y: 0 };
@@ -90,6 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
         osUrlInput.value = '';
         pdfDoc = null;
         currentFile = null;
+        currentStoragePath = null;
         rects = { tecnico: null, cliente: null };
         pdfPreviewWrapper.innerHTML = '';
         showFeedback('', 'info');
@@ -97,10 +100,12 @@ document.addEventListener('DOMContentLoaded', () => {
         skipTecnicoCheckbox.checked = false;
     }
 
+    // Função para lidar com o upload manual de arquivos (lógica antiga)
     async function handleFileSelect(file) {
         if (!file || file.type !== "application/pdf") return;
         
         currentFile = file;
+        currentStoragePath = null; // Garante que estamos no modo manual
         uploadInitialView.style.display = 'none';
         consultationView.style.display = 'none';
         preparationView.style.display = 'block';
@@ -125,6 +130,31 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         fileReader.readAsArrayBuffer(file);
         
+        updateInstructionText();
+    }
+
+    // NOVA função para lidar com a resposta da Edge Function
+    async function handleDataResponse(data) {
+        currentFile = null; // Garante que estamos no modo URL
+        currentStoragePath = data.storagePath;
+        extractedDataFromPdf = data.extractedData;
+
+        // Preenche os campos do formulário
+        clienteNomeInput.value = data.extractedData.nome;
+        clienteTelefoneInput.value = data.extractedData.telefone;
+        clienteEmailInput.value = data.extractedData.email;
+
+        showFeedback('Documento e dados recebidos! Prossiga com a marcação.', 'success');
+        
+        // Carrega e renderiza o PDF a partir do link do Storage
+        const publicUrl = db.getPublicUrl(data.storagePath);
+        pdfDoc = await pdfjsLib.getDocument(publicUrl).promise;
+        await renderPdfPreview();
+        
+        updateInstructionText();
+    }
+    
+    function updateInstructionText() {
         if (skipTecnicoCheckbox.checked) {
             instructionText.textContent = "Área do Técnico pulada. Desenhe a área para a assinatura do CLIENTE.";
             currentDrawingFor = 'cliente';
@@ -434,11 +464,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         setLoading(true);
         try {
-            const fileName = `${Date.now()}-${sanitizarNomeArquivo(currentFile.name)}`;
-            const uploadData = await db.uploadFile(fileName, currentFile);
+            let storagePath;
+
+            if (currentFile) { // Modo de upload manual
+                const fileName = `${Date.now()}-${sanitizarNomeArquivo(currentFile.name)}`;
+                const uploadData = await db.uploadFile(fileName, currentFile);
+                storagePath = uploadData.path;
+            } else { // Modo de busca por URL
+                storagePath = currentStoragePath;
+            }
             
             const documentRecord = {
-                caminho_arquivo_storage: uploadData.path,
+                caminho_arquivo_storage: storagePath,
                 nome_cliente: clienteNomeInput.value || null,
                 telefone_cliente: clienteTelefoneInput.value || null,
                 cliente_email: clienteEmailInput.value || null,
@@ -499,7 +536,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target.classList.contains('copy-link-btn')) {
             const docId = target.dataset.docId;
             const link = `${SITE_BASE_URL}/assinar.html?id=${docId}`;
-
             navigator.clipboard.writeText(link);
             target.textContent = 'Copiado!';
             setTimeout(() => { target.textContent = 'Copiar Link'; }, 2000);
@@ -584,26 +620,24 @@ document.addEventListener('DOMContentLoaded', () => {
     
         fetchFromUrlBtn.disabled = true;
         fetchFromUrlBtn.textContent = 'Buscando...';
+        showFeedback('Buscando e processando documento na nuvem...', 'info');
     
         try {
             const { data, error } = await db.supabase.functions.invoke('url-to-pdf', {
-                body: { url: url },
-                responseType: 'blob'
+                body: { url: url }
             });
     
             if (error) throw error;
             
-            const urlParams = new URLSearchParams(new URL(url).search);
-            const docId = urlParams.get('id') || `doc-${Date.now()}`;
-            const fileName = `${docId}.pdf`;
-    
-            const pdfFile = new File([data], fileName, { type: 'application/pdf' });
-            
-            await handleFileSelect(pdfFile);
+            uploadInitialView.style.display = 'none';
+            consultationView.style.display = 'none';
+            preparationView.style.display = 'block';
+            await handleDataResponse(data);
     
         } catch (err) {
-            alert(`Erro ao buscar o documento. Verifique o console para mais detalhes.`);
+            alert(`Erro ao buscar o documento: ${err.message || JSON.stringify(err)}`);
             console.error(err);
+            resetPreparationView();
         } finally {
             fetchFromUrlBtn.disabled = false;
             fetchFromUrlBtn.textContent = 'Buscar';
@@ -613,13 +647,6 @@ document.addEventListener('DOMContentLoaded', () => {
     skipTecnicoCheckbox.addEventListener('change', () => {
         rects = { tecnico: null, cliente: null };
         redrawAll();
-        
-        if (skipTecnicoCheckbox.checked) {
-            currentDrawingFor = 'cliente';
-            instructionText.textContent = "Área do Técnico pulada. Desenhe a área para a assinatura do CLIENTE.";
-        } else {
-            currentDrawingFor = 'tecnico';
-            instructionText.textContent = "1/2: Desenhe a área para a assinatura do TÉCNICO.";
-        }
+        updateInstructionText();
     });
 });
