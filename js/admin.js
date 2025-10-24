@@ -122,9 +122,8 @@ document.addEventListener('DOMContentLoaded', () => {
             extractedDataFromPdf = await extractDataFromPdf(currentFile);
             clienteNomeInput.value = extractedDataFromPdf.nome || clienteNomeInput.value;
             clienteTelefoneInput.value = extractedDataFromPdf.telefone || clienteTelefoneInput.value;
-            // AQUI garantimos que o email correto (extraído) seja usado, mesmo que o PDF mostre [email protected]
             clienteEmailInput.value = extractedDataFromPdf.email || clienteEmailInput.value;
-            console.log("E-mail extraído:", extractedDataFromPdf.email); // Log para confirmar
+            console.log("E-mail extraído e preenchido:", clienteEmailInput.value); // Log
             showFeedback('Dados extraídos! Verifique os campos e prossiga com a marcação.', 'success');
 
             await renderPdfPreview();
@@ -443,7 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
              } catch (fetchError) {
                  showFeedback("Erro: Não foi possível recarregar o arquivo PDF do storage.", "error");
                  console.error("Erro ao buscar PDF do storage:", fetchError);
-                 return; // Impede o envio se não conseguir recarregar
+                 return; 
              }
         }
          if (!currentFile) { 
@@ -457,39 +456,51 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // *** FUNÇÃO convertCoords CORRIGIDA ***
+        // *** FUNÇÃO convertCoords CORRIGIDA PARA ALINHAR PELA BASE ***
         const convertCoords = (rect) => {
             if (!rect) return null;
-            let accumulatedHeight = 0;
+            let yOffset = 0; // Altura acumulada das páginas anteriores no canvas
             let pageNum = 0;
             // Encontra a página correta e a altura acumulada até ela
             for(let i=0; i<pageDimensions.length; i++){
-                if(rect.y < accumulatedHeight + pageDimensions[i].scaledHeight){
+                if(rect.y + rect.height <= yOffset + pageDimensions[i].scaledHeight){ // Usa a base do retângulo para encontrar a página
                     pageNum = i + 1;
                     break;
                 }
-                accumulatedHeight += pageDimensions[i].scaledHeight;
+                yOffset += pageDimensions[i].scaledHeight;
             }
+            // Se não encontrou (ex: retângulo cruza páginas ou erro de cálculo), assume a última página que contém o início do Y
+             if (pageNum === 0) {
+                 yOffset = 0; // Recalcula o offset se não encontrou
+                 for(let i=0; i<pageDimensions.length; i++){
+                     if(rect.y < yOffset + pageDimensions[i].scaledHeight){
+                         pageNum = i + 1;
+                         break;
+                     }
+                     yOffset += pageDimensions[i].scaledHeight;
+                 }
+             }
             if(pageNum === 0) pageNum = pageDimensions.length || 1; // Garante página válida
 
             if (!pageDimensions[pageNum-1]) {
                 console.error("Dimensões da página não encontradas para:", pageNum, pageDimensions);
                 return null;
             }
-            const pageDim = pageDimensions[pageNum-1]; // Dimensões ORIGINAIS da página
+            const pageDim = pageDimensions[pageNum-1]; // Dimensões ORIGINAIS da página PDF
             const canvasWidth = pdfPreviewWrapper.clientWidth;
             if (canvasWidth === 0) return null;
             const scale = pageDim.width / canvasWidth; // Escala PDF original / Escala Canvas
 
-            // Coordenada Y relativa ao TOPO da página no canvas
-            const yRelativeToCanvasPageTop = rect.y - accumulatedHeight;
-            // Coordenada Y relativa à BASE da página no PDF (origem é inferior-esquerda)
-            const yPdfOrigin = pageDim.height - (yRelativeToCanvasPageTop * scale);
+            // Coordenada Y da BASE do retângulo relativa ao TOPO da página no canvas
+            const yRectBaseRelativeToCanvasPageTop = (rect.y + rect.height) - yOffset;
+            
+            // Coordenada Y da BASE do retângulo no sistema PDF (origem inferior-esquerda)
+            const yPdfOriginBase = pageDim.height - (yRectBaseRelativeToCanvasPageTop * scale);
 
             return {
                 page: pageNum,
                 x: rect.x * scale,
-                y: yPdfOrigin, // Usa a coordenada Y calculada a partir da base da página
+                y: yPdfOriginBase, // Usa a coordenada Y da BASE do retângulo como ponto de inserção
                 width: rect.width * scale,
                 height: rect.height * scale
             };
@@ -522,7 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 caminho_arquivo_storage: finalStoragePath,
                 nome_cliente: clienteNomeInput.value || null,
                 telefone_cliente: clienteTelefoneInput.value || null,
-                cliente_email: extractedDataFromPdf.email || clienteEmailInput.value || null, // Prioriza o email extraído
+                cliente_email: extractedDataFromPdf.email || clienteEmailInput.value || null, 
                 n_os: extractedDataFromPdf.n_os || null,
                 status_os: extractedDataFromPdf.status_os || null,
                 tecnico_assinatura_coords: tecnicoCoords,
