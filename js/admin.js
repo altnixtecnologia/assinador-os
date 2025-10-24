@@ -47,11 +47,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const fetchFromUrlBtn = document.getElementById('fetch-from-url-btn');
     const osUrlInput = document.getElementById('os-url');
     const skipTecnicoCheckbox = document.getElementById('skip-tecnico-checkbox');
-
+    
     // --- Estado do Aplicativo ---
     let pdfDoc = null;
-    let currentFile = null;
-    let currentStoragePath = null;
+    let currentFile = null; 
+    let currentStoragePath = null; 
     let currentDrawingFor = 'tecnico';
     let isDrawing = false;
     let startCoords = { x: 0, y: 0 };
@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
             submitButton.textContent = 'Gerar Link de Assinatura';
         }
     }
-
+    
     function resetPreparationView() {
         preparationView.style.display = 'none';
         consultationView.style.display = 'none';
@@ -102,12 +102,12 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadInitialView.style.display = 'none';
         consultationView.style.display = 'none';
         preparationView.style.display = 'block';
-
+        
         showFeedback('Carregando e extraindo dados do PDF...', 'info');
 
         try {
             pdfDoc = await pdfjsLib.getDocument(pdfSource).promise;
-
+            
             let fileForExtraction;
             if (typeof pdfSource === 'string') {
                 const response = await fetch(pdfSource);
@@ -117,14 +117,15 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 fileForExtraction = pdfSource;
             }
-            currentFile = fileForExtraction;
+            currentFile = fileForExtraction; // Armazena sempre o objeto File
 
             extractedDataFromPdf = await extractDataFromPdf(currentFile);
-            clienteNomeInput.value = extractedDataFromPdf.nome;
-            clienteTelefoneInput.value = extractedDataFromPdf.telefone;
-            clienteEmailInput.value = extractedDataFromPdf.email;
-            showFeedback('Dados extraídos! Prossiga com a marcação das assinaturas.', 'success');
-
+            // Confirma/preenche os dados extraídos nos campos
+            clienteNomeInput.value = extractedDataFromPdf.nome || clienteNomeInput.value;
+            clienteTelefoneInput.value = extractedDataFromPdf.telefone || clienteTelefoneInput.value;
+            clienteEmailInput.value = extractedDataFromPdf.email || clienteEmailInput.value;
+            showFeedback('Dados extraídos! Verifique os campos e prossiga com a marcação.', 'success');
+            
             await renderPdfPreview();
             updateInstructionText();
 
@@ -134,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
             resetPreparationView();
         }
     }
-
+    
     function updateInstructionText() {
         if (skipTecnicoCheckbox && skipTecnicoCheckbox.checked) {
             instructionText.textContent = "Área do Técnico pulada. Desenhe a área para a assinatura do CLIENTE.";
@@ -144,10 +145,10 @@ document.addEventListener('DOMContentLoaded', () => {
             currentDrawingFor = 'tecnico';
         }
     }
-
+    
     async function renderPdfPreview() {
         if (!pdfDoc) return;
-        pdfPreviewWrapper.innerHTML = '';
+        pdfPreviewWrapper.innerHTML = ''; 
         pageDimensions = [];
         const containerWidth = pdfPreviewWrapper.clientWidth;
 
@@ -156,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
         drawCanvas.style.position = 'absolute';
         drawCanvas.style.top = '0';
         drawCanvas.style.left = '0';
-        drawCanvas.style.zIndex = '10';
+        drawCanvas.style.zIndex = '10'; 
         pdfPreviewWrapper.appendChild(drawCanvas);
 
         let totalHeight = 0;
@@ -166,11 +167,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const scale = containerWidth / viewport.width;
             const scaledViewport = page.getViewport({ scale });
 
-            const canvas = document.createElement('canvas');
+            const canvas = document.createElement('canvas'); 
             canvas.height = scaledViewport.height;
             canvas.width = scaledViewport.width;
-            canvas.style.display = 'block';
-            pdfPreviewWrapper.appendChild(canvas);
+            canvas.style.display = 'block'; 
+            pdfPreviewWrapper.appendChild(canvas); 
 
             pageDimensions.push({ num: i, width: viewport.width, height: viewport.height, scaledHeight: scaledViewport.height });
             totalHeight += scaledViewport.height;
@@ -184,7 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
         drawCanvas.addEventListener('mousedown', startDrawing);
         drawCanvas.addEventListener('mousemove', draw);
         drawCanvas.addEventListener('mouseup', stopDrawing);
-        redrawAll();
+        redrawAll(); 
     }
 
     function startDrawing(event) {
@@ -252,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
             drawCtx.fillText(label, rect.x + 5, rect.y + 15);
         }
     }
-
+    
     async function carregarDocumentos() {
         listLoadingFeedback.style.display = 'block';
         documentList.innerHTML = '';
@@ -280,7 +281,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = document.createElement('div');
             card.className = 'border rounded-lg p-4 bg-gray-50 shadow-sm';
             const dataEnvio = new Date(doc.created_at).toLocaleDateString('pt-BR');
-            const nomeArquivoOriginal = doc.caminho_arquivo_storage.split('-').slice(1).join('-') || doc.caminho_arquivo_storage;
+            // Corrigido para lidar melhor com nomes de arquivo que podem não ter hífen
+            const parts = doc.caminho_arquivo_storage.split('-');
+            const nomeArquivoOriginal = parts.length > 1 ? parts.slice(1).join('-') : doc.caminho_arquivo_storage;
             let statusHtml = '';
             let actionsHtml = '';
             if (doc.status === 'assinado') {
@@ -295,7 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
             card.innerHTML = `<div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                                 <div class="flex-grow min-w-0">
                                     <p class="font-bold text-gray-800 break-all">${nomeArquivoOriginal}</p>
-                                    <p class="text-sm text-gray-500 truncate">${doc.nome_cliente ? `Cliente: ${doc.nome_cliente}` : ''}</p>
+                                    <p class="text-sm text-gray-500 truncate">${doc.nome_cliente ? `Cliente: ${doc.nome_cliente}` : 'Cliente não informado'}</p>
                                     ${doc.n_os ? `<p class="text-sm text-gray-500 font-semibold">OS N°: ${doc.n_os}</p>` : ''}
                                 </div>
                                 <div class="flex-shrink-0 flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -312,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
             documentList.appendChild(card);
         });
     }
-
+    
     function abrirExclusaoModal(docId) {
         docIdParaExcluir = docId;
         deleteCheckbox.checked = false;
@@ -328,7 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await db.deleteDocument(docIdParaExcluir);
             fecharModalExclusao();
-            await carregarDocumentos();
+            await carregarDocumentos(); // Recarrega a lista após exclusão
         } catch (error) {
             alert(`Erro ao excluir o documento: ${error.message}`);
         } finally {
@@ -341,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
         docIdParaExcluir = null;
         deleteConfirmModal.classList.remove('active');
     }
-
+    
     function atualizarControlesPaginacao() {
         const totalPages = Math.ceil(totalDocuments / ITENS_PER_PAGE);
         pageInfo.textContent = totalDocuments > 0 ? `Página ${currentPage + 1} de ${totalPages || 1}` : 'Nenhum resultado';
@@ -350,8 +353,9 @@ document.addEventListener('DOMContentLoaded', () => {
         nextPageBtn.disabled = (currentPage + 1) >= totalPages;
         nextPageBtn.classList.toggle('btn-disabled', (currentPage + 1) >= totalPages);
     }
-
+    
     function sanitizarNomeArquivo(nome) {
+        if (!nome) return 'documento-sem-nome';
         const comAcentos = 'àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþßŕ';
         const semAcentos = 'aaaaaaaceeeeiiiionoooooouuuuybsr';
         let novoNome = nome.toLowerCase();
@@ -359,9 +363,10 @@ document.addEventListener('DOMContentLoaded', () => {
             novoNome = novoNome.replace(new RegExp(comAcentos.charAt(i), 'g'), semAcentos.charAt(i));
         }
         return novoNome
-            .replace(/[^a-z0-9.\-_]/g, '-')
-            .replace(/\s+/g, '-')
-            .replace(/-+/g, '-');
+            .replace(/[^a-z0-9.\-_]/g, '-') // Remove caracteres inválidos
+            .replace(/\s+/g, '-')           // Substitui espaços por hífens
+            .replace(/-+/g, '-')            // Remove hífens duplicados
+            .replace(/^\-+|\-+$/g, '');     // Remove hífens no início/fim
     }
 
     // --- Event Listeners ---
@@ -381,26 +386,29 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Por favor, insira uma URL válida.');
             return;
         }
-
+    
         fetchFromUrlBtn.disabled = true;
         fetchFromUrlBtn.textContent = 'Buscando...';
-
+    
         try {
             const { data, error } = await db.supabase.functions.invoke('url-to-pdf', {
                 body: { url: url },
             });
-
+    
             if (error) throw error;
-            if (!data || !data.storagePath) throw new Error("A resposta da função não continha um caminho de arquivo válido.");
+            if (!data || !data.storagePath) {
+                const errorMsg = data && data.error ? data.error : "A resposta da função não continha um caminho de arquivo válido.";
+                throw new Error(errorMsg);
+            }
 
-            currentStoragePath = data.storagePath;
+            currentStoragePath = data.storagePath; 
             const publicUrl = db.getPublicUrl(data.storagePath);
             await preparePdfForSigning(publicUrl);
-
+    
         } catch (err) {
             alert(`Erro ao buscar o documento: ${err.message}`);
             console.error(err);
-            resetPreparationView(); // Volta para a tela inicial em caso de erro
+            resetPreparationView(); 
         } finally {
             fetchFromUrlBtn.disabled = false;
             fetchFromUrlBtn.textContent = 'Buscar';
@@ -418,11 +426,27 @@ document.addEventListener('DOMContentLoaded', () => {
     uploadForm.addEventListener('submit', async (event) => {
         event.preventDefault();
 
-        // Verifica se temos um caminho do storage OU um arquivo local pronto para upload
-        if (!currentStoragePath && !currentFile) {
-            showFeedback("Nenhum documento PDF foi carregado ou gerado.", "error");
-            return;
+        if (!currentFile && !currentStoragePath) {
+             showFeedback("Nenhum documento PDF foi carregado ou gerado.", "error");
+             return;
         }
+        // Garante que temos um currentFile para obter o nome, mesmo que tenha vindo da URL
+        if (!currentFile && currentStoragePath) {
+            // Se veio da URL e não temos o File, precisamos buscar para pegar o nome
+            // Isso pode ser otimizado se a função retornasse o nome original
+             showFeedback("Recarregando arquivo para obter nome...", "info");
+             const publicUrl = db.getPublicUrl(currentStoragePath);
+             const response = await fetch(publicUrl);
+             const blob = await response.blob();
+             const tempFileName = currentStoragePath.split('/').pop();
+             currentFile = new File([blob], tempFileName, { type: "application/pdf" });
+             showFeedback("Arquivo recarregado.", "info");
+        }
+         if (!currentFile) { // Verificação final
+             showFeedback("Erro: Não foi possível obter o arquivo PDF.", "error");
+             return;
+         }
+
 
         if ((!skipTecnicoCheckbox.checked && !rects.tecnico) || !rects.cliente) {
             showFeedback("Defina todas as áreas de assinatura necessárias.", "error");
@@ -433,8 +457,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!rect) return null;
             let yOffset = 0;
             let pageNum = 0;
+            // Encontra a página correta com base na coordenada Y do retângulo desenhado
             for(let i=0; i<pageDimensions.length; i++){
-                // Verifica se o ponto Y do retângulo está dentro da altura acumulada das páginas
                 if(rect.y < yOffset + pageDimensions[i].scaledHeight){
                     pageNum = i + 1;
                     break;
@@ -442,17 +466,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 yOffset += pageDimensions[i].scaledHeight;
             }
             if(pageNum === 0 && pageDimensions.length > 0) pageNum = pageDimensions.length;
-            if(pageNum === 0) pageNum = 1;
+            if(pageNum === 0) pageNum = 1; // Faltava essa garantia
 
-            const pageDim = pageDimensions[pageNum-1];
-            const canvasWidth = pdfPreviewWrapper.clientWidth;
-            const scale = pageDim.width / canvasWidth;
+            if (!pageDimensions[pageNum-1]) {
+                console.error("Dimensões da página não encontradas para:", pageNum, pageDimensions);
+                return null; 
+            }
+            const pageDim = pageDimensions[pageNum-1]; // Dimensões originais da página
+            const canvasWidth = pdfPreviewWrapper.clientWidth; 
+            if (canvasWidth === 0) return null; // Evita divisão por zero
+            const scale = pageDim.width / canvasWidth; // Proporção original vs exibida
 
-            // *** A ALTERAÇÃO ESTÁ AQUI ***
+            // *** CORREÇÃO DEFINITIVA DA POSIÇÃO Y ***
             return {
-                page: pageNum,
+                page: pageNum, 
                 x: rect.x * scale,
-                y: pageDim.height - ((rect.y - yOffset) * scale) - (rect.height * scale) - 30, // Ajuste: Adiciona 30 pixels de espaçamento para baixo
+                // Calcula o Y a partir do topo da PÁGINA CORRETA (pageDim.height),
+                // ajustado pela posição relativa dentro do canvas multi-páginas (rect.y - yOffset)
+                // e pela escala. NÃO subtrai a altura do retângulo aqui.
+                y: pageDim.height - ((rect.y - yOffset) * scale), 
                 width: rect.width * scale,
                 height: rect.height * scale
             };
@@ -461,12 +493,9 @@ document.addEventListener('DOMContentLoaded', () => {
         setLoading(true);
         try {
             let finalStoragePath;
-            // Se currentStoragePath existe, significa que o arquivo já está no Storage (veio da URL)
             if (currentStoragePath) {
                 finalStoragePath = currentStoragePath;
-            } 
-            // Senão, se currentFile existe, significa que foi um upload manual, então fazemos o upload
-            else if (currentFile) {
+            } else if (currentFile) {
                 const fileName = `${Date.now()}-${sanitizarNomeArquivo(currentFile.name)}`;
                 const uploadData = await db.uploadFile(fileName, currentFile);
                 finalStoragePath = uploadData.path;
@@ -474,6 +503,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error("Nenhum arquivo para processar.");
             }
             
+            const tecnicoCoords = skipTecnicoCheckbox.checked ? null : convertCoords(rects.tecnico);
+            const clienteCoords = convertCoords(rects.cliente);
+            // Adiciona verificação se o cálculo falhou
+            if (!skipTecnicoCheckbox.checked && rects.tecnico && !tecnicoCoords) {
+                 throw new Error("Não foi possível calcular as coordenadas do técnico.");
+            }
+            if (rects.cliente && !clienteCoords) {
+                 throw new Error("Não foi possível calcular as coordenadas do cliente.");
+            }
+
+
             const documentRecord = {
                 caminho_arquivo_storage: finalStoragePath,
                 nome_cliente: clienteNomeInput.value || null,
@@ -481,8 +521,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 cliente_email: clienteEmailInput.value || null,
                 n_os: extractedDataFromPdf.n_os || null,
                 status_os: extractedDataFromPdf.status_os || null,
-                tecnico_assinatura_coords: skipTecnicoCheckbox.checked ? null : convertCoords(rects.tecnico),
-                cliente_assinatura_coords: convertCoords(rects.cliente)
+                tecnico_assinatura_coords: tecnicoCoords,
+                cliente_assinatura_coords: clienteCoords
             };
 
             const insertData = await db.createDocumentRecord(documentRecord);
