@@ -47,11 +47,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const fetchFromUrlBtn = document.getElementById('fetch-from-url-btn');
     const osUrlInput = document.getElementById('os-url');
     const skipTecnicoCheckbox = document.getElementById('skip-tecnico-checkbox');
-    
+
     // --- Estado do Aplicativo ---
     let pdfDoc = null;
-    let currentFile = null; 
-    let currentStoragePath = null; 
+    let currentFile = null;
+    let currentStoragePath = null;
     let currentDrawingFor = 'tecnico';
     let isDrawing = false;
     let startCoords = { x: 0, y: 0 };
@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
             submitButton.textContent = 'Gerar Link de Assinatura';
         }
     }
-    
+
     function resetPreparationView() {
         preparationView.style.display = 'none';
         consultationView.style.display = 'none';
@@ -102,12 +102,12 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadInitialView.style.display = 'none';
         consultationView.style.display = 'none';
         preparationView.style.display = 'block';
-        
+
         showFeedback('Carregando e extraindo dados do PDF...', 'info');
 
         try {
             pdfDoc = await pdfjsLib.getDocument(pdfSource).promise;
-            
+
             let fileForExtraction;
             if (typeof pdfSource === 'string') {
                 const response = await fetch(pdfSource);
@@ -117,15 +117,16 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 fileForExtraction = pdfSource;
             }
-            currentFile = fileForExtraction; // Armazena sempre o objeto File
+            currentFile = fileForExtraction;
 
             extractedDataFromPdf = await extractDataFromPdf(currentFile);
-            // Confirma/preenche os dados extraídos nos campos
             clienteNomeInput.value = extractedDataFromPdf.nome || clienteNomeInput.value;
             clienteTelefoneInput.value = extractedDataFromPdf.telefone || clienteTelefoneInput.value;
+            // AQUI garantimos que o email correto (extraído) seja usado, mesmo que o PDF mostre [email protected]
             clienteEmailInput.value = extractedDataFromPdf.email || clienteEmailInput.value;
+            console.log("E-mail extraído:", extractedDataFromPdf.email); // Log para confirmar
             showFeedback('Dados extraídos! Verifique os campos e prossiga com a marcação.', 'success');
-            
+
             await renderPdfPreview();
             updateInstructionText();
 
@@ -135,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
             resetPreparationView();
         }
     }
-    
+
     function updateInstructionText() {
         if (skipTecnicoCheckbox && skipTecnicoCheckbox.checked) {
             instructionText.textContent = "Área do Técnico pulada. Desenhe a área para a assinatura do CLIENTE.";
@@ -145,10 +146,10 @@ document.addEventListener('DOMContentLoaded', () => {
             currentDrawingFor = 'tecnico';
         }
     }
-    
+
     async function renderPdfPreview() {
         if (!pdfDoc) return;
-        pdfPreviewWrapper.innerHTML = ''; 
+        pdfPreviewWrapper.innerHTML = '';
         pageDimensions = [];
         const containerWidth = pdfPreviewWrapper.clientWidth;
 
@@ -157,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
         drawCanvas.style.position = 'absolute';
         drawCanvas.style.top = '0';
         drawCanvas.style.left = '0';
-        drawCanvas.style.zIndex = '10'; 
+        drawCanvas.style.zIndex = '10';
         pdfPreviewWrapper.appendChild(drawCanvas);
 
         let totalHeight = 0;
@@ -167,11 +168,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const scale = containerWidth / viewport.width;
             const scaledViewport = page.getViewport({ scale });
 
-            const canvas = document.createElement('canvas'); 
+            const canvas = document.createElement('canvas');
             canvas.height = scaledViewport.height;
             canvas.width = scaledViewport.width;
-            canvas.style.display = 'block'; 
-            pdfPreviewWrapper.appendChild(canvas); 
+            canvas.style.display = 'block';
+            pdfPreviewWrapper.appendChild(canvas);
 
             pageDimensions.push({ num: i, width: viewport.width, height: viewport.height, scaledHeight: scaledViewport.height });
             totalHeight += scaledViewport.height;
@@ -185,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
         drawCanvas.addEventListener('mousedown', startDrawing);
         drawCanvas.addEventListener('mousemove', draw);
         drawCanvas.addEventListener('mouseup', stopDrawing);
-        redrawAll(); 
+        redrawAll();
     }
 
     function startDrawing(event) {
@@ -253,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
             drawCtx.fillText(label, rect.x + 5, rect.y + 15);
         }
     }
-    
+
     async function carregarDocumentos() {
         listLoadingFeedback.style.display = 'block';
         documentList.innerHTML = '';
@@ -281,7 +282,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = document.createElement('div');
             card.className = 'border rounded-lg p-4 bg-gray-50 shadow-sm';
             const dataEnvio = new Date(doc.created_at).toLocaleDateString('pt-BR');
-            // Corrigido para lidar melhor com nomes de arquivo que podem não ter hífen
             const parts = doc.caminho_arquivo_storage.split('-');
             const nomeArquivoOriginal = parts.length > 1 ? parts.slice(1).join('-') : doc.caminho_arquivo_storage;
             let statusHtml = '';
@@ -315,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
             documentList.appendChild(card);
         });
     }
-    
+
     function abrirExclusaoModal(docId) {
         docIdParaExcluir = docId;
         deleteCheckbox.checked = false;
@@ -331,7 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await db.deleteDocument(docIdParaExcluir);
             fecharModalExclusao();
-            await carregarDocumentos(); // Recarrega a lista após exclusão
+            await carregarDocumentos();
         } catch (error) {
             alert(`Erro ao excluir o documento: ${error.message}`);
         } finally {
@@ -344,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
         docIdParaExcluir = null;
         deleteConfirmModal.classList.remove('active');
     }
-    
+
     function atualizarControlesPaginacao() {
         const totalPages = Math.ceil(totalDocuments / ITENS_PER_PAGE);
         pageInfo.textContent = totalDocuments > 0 ? `Página ${currentPage + 1} de ${totalPages || 1}` : 'Nenhum resultado';
@@ -353,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
         nextPageBtn.disabled = (currentPage + 1) >= totalPages;
         nextPageBtn.classList.toggle('btn-disabled', (currentPage + 1) >= totalPages);
     }
-    
+
     function sanitizarNomeArquivo(nome) {
         if (!nome) return 'documento-sem-nome';
         const comAcentos = 'àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþßŕ';
@@ -363,10 +363,10 @@ document.addEventListener('DOMContentLoaded', () => {
             novoNome = novoNome.replace(new RegExp(comAcentos.charAt(i), 'g'), semAcentos.charAt(i));
         }
         return novoNome
-            .replace(/[^a-z0-9.\-_]/g, '-') // Remove caracteres inválidos
-            .replace(/\s+/g, '-')           // Substitui espaços por hífens
-            .replace(/-+/g, '-')            // Remove hífens duplicados
-            .replace(/^\-+|\-+$/g, '');     // Remove hífens no início/fim
+            .replace(/[^a-z0-9.\-_]/g, '-')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^\-+|\-+$/g, '');
     }
 
     // --- Event Listeners ---
@@ -386,29 +386,29 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Por favor, insira uma URL válida.');
             return;
         }
-    
+
         fetchFromUrlBtn.disabled = true;
         fetchFromUrlBtn.textContent = 'Buscando...';
-    
+
         try {
             const { data, error } = await db.supabase.functions.invoke('url-to-pdf', {
                 body: { url: url },
             });
-    
+
             if (error) throw error;
             if (!data || !data.storagePath) {
                 const errorMsg = data && data.error ? data.error : "A resposta da função não continha um caminho de arquivo válido.";
                 throw new Error(errorMsg);
             }
 
-            currentStoragePath = data.storagePath; 
+            currentStoragePath = data.storagePath;
             const publicUrl = db.getPublicUrl(data.storagePath);
             await preparePdfForSigning(publicUrl);
-    
+
         } catch (err) {
             alert(`Erro ao buscar o documento: ${err.message}`);
             console.error(err);
-            resetPreparationView(); 
+            resetPreparationView();
         } finally {
             fetchFromUrlBtn.disabled = false;
             fetchFromUrlBtn.textContent = 'Buscar';
@@ -430,19 +430,23 @@ document.addEventListener('DOMContentLoaded', () => {
              showFeedback("Nenhum documento PDF foi carregado ou gerado.", "error");
              return;
         }
-        // Garante que temos um currentFile para obter o nome, mesmo que tenha vindo da URL
         if (!currentFile && currentStoragePath) {
-            // Se veio da URL e não temos o File, precisamos buscar para pegar o nome
-            // Isso pode ser otimizado se a função retornasse o nome original
              showFeedback("Recarregando arquivo para obter nome...", "info");
-             const publicUrl = db.getPublicUrl(currentStoragePath);
-             const response = await fetch(publicUrl);
-             const blob = await response.blob();
-             const tempFileName = currentStoragePath.split('/').pop();
-             currentFile = new File([blob], tempFileName, { type: "application/pdf" });
-             showFeedback("Arquivo recarregado.", "info");
+             try {
+                 const publicUrl = db.getPublicUrl(currentStoragePath);
+                 const response = await fetch(publicUrl);
+                 if (!response.ok) throw new Error(`Falha ao buscar PDF do storage: ${response.status}`);
+                 const blob = await response.blob();
+                 const tempFileName = currentStoragePath.split('/').pop();
+                 currentFile = new File([blob], tempFileName, { type: "application/pdf" });
+                 showFeedback("Arquivo recarregado.", "info");
+             } catch (fetchError) {
+                 showFeedback("Erro: Não foi possível recarregar o arquivo PDF do storage.", "error");
+                 console.error("Erro ao buscar PDF do storage:", fetchError);
+                 return; // Impede o envio se não conseguir recarregar
+             }
         }
-         if (!currentFile) { // Verificação final
+         if (!currentFile) { 
              showFeedback("Erro: Não foi possível obter o arquivo PDF.", "error");
              return;
          }
@@ -453,42 +457,44 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // *** FUNÇÃO convertCoords CORRIGIDA ***
         const convertCoords = (rect) => {
             if (!rect) return null;
-            let yOffset = 0;
+            let accumulatedHeight = 0;
             let pageNum = 0;
-            // Encontra a página correta com base na coordenada Y do retângulo desenhado
+            // Encontra a página correta e a altura acumulada até ela
             for(let i=0; i<pageDimensions.length; i++){
-                if(rect.y < yOffset + pageDimensions[i].scaledHeight){
+                if(rect.y < accumulatedHeight + pageDimensions[i].scaledHeight){
                     pageNum = i + 1;
                     break;
                 }
-                yOffset += pageDimensions[i].scaledHeight;
+                accumulatedHeight += pageDimensions[i].scaledHeight;
             }
-            if(pageNum === 0 && pageDimensions.length > 0) pageNum = pageDimensions.length;
-            if(pageNum === 0) pageNum = 1; // Faltava essa garantia
+            if(pageNum === 0) pageNum = pageDimensions.length || 1; // Garante página válida
 
             if (!pageDimensions[pageNum-1]) {
                 console.error("Dimensões da página não encontradas para:", pageNum, pageDimensions);
-                return null; 
+                return null;
             }
-            const pageDim = pageDimensions[pageNum-1]; // Dimensões originais da página
-            const canvasWidth = pdfPreviewWrapper.clientWidth; 
-            if (canvasWidth === 0) return null; // Evita divisão por zero
-            const scale = pageDim.width / canvasWidth; // Proporção original vs exibida
+            const pageDim = pageDimensions[pageNum-1]; // Dimensões ORIGINAIS da página
+            const canvasWidth = pdfPreviewWrapper.clientWidth;
+            if (canvasWidth === 0) return null;
+            const scale = pageDim.width / canvasWidth; // Escala PDF original / Escala Canvas
 
-            // *** CORREÇÃO DEFINITIVA DA POSIÇÃO Y ***
+            // Coordenada Y relativa ao TOPO da página no canvas
+            const yRelativeToCanvasPageTop = rect.y - accumulatedHeight;
+            // Coordenada Y relativa à BASE da página no PDF (origem é inferior-esquerda)
+            const yPdfOrigin = pageDim.height - (yRelativeToCanvasPageTop * scale);
+
             return {
-                page: pageNum, 
+                page: pageNum,
                 x: rect.x * scale,
-                // Calcula o Y a partir do topo da PÁGINA CORRETA (pageDim.height),
-                // ajustado pela posição relativa dentro do canvas multi-páginas (rect.y - yOffset)
-                // e pela escala. NÃO subtrai a altura do retângulo aqui.
-                y: pageDim.height - ((rect.y - yOffset) * scale), 
+                y: yPdfOrigin, // Usa a coordenada Y calculada a partir da base da página
                 width: rect.width * scale,
                 height: rect.height * scale
             };
         };
+        // *** FIM DA CORREÇÃO ***
 
         setLoading(true);
         try {
@@ -502,10 +508,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 throw new Error("Nenhum arquivo para processar.");
             }
-            
+
             const tecnicoCoords = skipTecnicoCheckbox.checked ? null : convertCoords(rects.tecnico);
             const clienteCoords = convertCoords(rects.cliente);
-            // Adiciona verificação se o cálculo falhou
             if (!skipTecnicoCheckbox.checked && rects.tecnico && !tecnicoCoords) {
                  throw new Error("Não foi possível calcular as coordenadas do técnico.");
             }
@@ -513,12 +518,11 @@ document.addEventListener('DOMContentLoaded', () => {
                  throw new Error("Não foi possível calcular as coordenadas do cliente.");
             }
 
-
             const documentRecord = {
                 caminho_arquivo_storage: finalStoragePath,
                 nome_cliente: clienteNomeInput.value || null,
                 telefone_cliente: clienteTelefoneInput.value || null,
-                cliente_email: clienteEmailInput.value || null,
+                cliente_email: extractedDataFromPdf.email || clienteEmailInput.value || null, // Prioriza o email extraído
                 n_os: extractedDataFromPdf.n_os || null,
                 status_os: extractedDataFromPdf.status_os || null,
                 tecnico_assinatura_coords: tecnicoCoords,
@@ -530,7 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
             linkInput.value = linkDeAssinatura;
 
             await db.updateDocumentLink(insertData.id, linkDeAssinatura);
-            
+
             actionsContainer.classList.remove('hidden');
             whatsappContainer.style.display = clienteTelefoneInput.value ? 'block' : 'none';
             showFeedback('Link gerado e salvo com sucesso!', 'success');
@@ -572,7 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
             abrirExclusaoModal(target.dataset.docId);
         }
     });
-    
+
     statusFilterButtons.addEventListener('click', (e) => {
         const target = e.target.closest('button');
         if (target) {
@@ -587,7 +591,7 @@ document.addEventListener('DOMContentLoaded', () => {
             carregarDocumentos();
         }
     });
-    
+
     searchInput.addEventListener('input', () => {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
@@ -596,14 +600,14 @@ document.addEventListener('DOMContentLoaded', () => {
             carregarDocumentos();
         }, 500);
     });
-    
+
     prevPageBtn.addEventListener('click', () => {
         if (currentPage > 0) {
             currentPage--;
             carregarDocumentos();
         }
     });
-    
+
     nextPageBtn.addEventListener('click', () => {
         const totalPages = Math.ceil(totalDocuments / ITENS_PER_PAGE);
         if (currentPage + 1 < totalPages) {
@@ -611,7 +615,7 @@ document.addEventListener('DOMContentLoaded', () => {
             carregarDocumentos();
         }
     });
-    
+
     closeModalBtn.addEventListener('click', () => detailsModal.classList.remove('active'));
     deleteCheckbox.addEventListener('change', () => {
         confirmDeleteBtn.disabled = !deleteCheckbox.checked;
