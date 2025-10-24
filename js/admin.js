@@ -50,8 +50,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- Estado do Aplicativo ---
     let pdfDoc = null;
-    let currentFile = null;
-    let currentStoragePath = null;
+    let currentFile = null; // Representa o arquivo PDF local (para extração e upload)
+    let currentStoragePath = null; // Representa o caminho do arquivo no Supabase Storage
     let currentDrawingFor = 'tecnico';
     let isDrawing = false;
     let startCoords = { x: 0, y: 0 };
@@ -98,6 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (skipTecnicoCheckbox) skipTecnicoCheckbox.checked = false;
     }
 
+    // Função única para preparar o PDF, seja de um arquivo local ou de uma URL do Storage
     async function preparePdfForSigning(pdfSource) {
         uploadInitialView.style.display = 'none';
         consultationView.style.display = 'none';
@@ -106,18 +107,24 @@ document.addEventListener('DOMContentLoaded', () => {
         showFeedback('Carregando e extraindo dados do PDF...', 'info');
 
         try {
+            // pdfSource pode ser um objeto File ou uma string (URL)
             pdfDoc = await pdfjsLib.getDocument(pdfSource).promise;
             
+            // Re-cria um objeto File para a extração de texto
             let fileForExtraction;
             if (typeof pdfSource === 'string') {
                 const response = await fetch(pdfSource);
                 const blob = await response.blob();
-                fileForExtraction = new File([blob], "documento.pdf", { type: "application/pdf" });
+                // Gera um nome de arquivo temporário
+                const tempFileName = currentStoragePath ? currentStoragePath.split('/').pop() : 'documento_url.pdf';
+                fileForExtraction = new File([blob], tempFileName, { type: "application/pdf" });
             } else {
                 fileForExtraction = pdfSource;
             }
+            // Armazena o arquivo (necessário para o upload final no submit)
+            currentFile = fileForExtraction;
 
-            extractedDataFromPdf = await extractDataFromPdf(fileForExtraction);
+            extractedDataFromPdf = await extractDataFromPdf(currentFile);
             clienteNomeInput.value = extractedDataFromPdf.nome;
             clienteTelefoneInput.value = extractedDataFromPdf.telefone;
             clienteEmailInput.value = extractedDataFromPdf.email;
@@ -145,16 +152,17 @@ document.addEventListener('DOMContentLoaded', () => {
     
     async function renderPdfPreview() {
         if (!pdfDoc) return;
-        pdfPreviewWrapper.innerHTML = '';
+        pdfPreviewWrapper.innerHTML = ''; // Limpa previews antigos
         pageDimensions = [];
         const containerWidth = pdfPreviewWrapper.clientWidth;
-        
+
+        // Cria o canvas de desenho primeiro, para ficar por baixo
         const drawCanvas = document.createElement('canvas');
         drawCanvas.id = 'pdf-drawing-canvas';
         drawCanvas.style.position = 'absolute';
         drawCanvas.style.top = '0';
         drawCanvas.style.left = '0';
-        drawCanvas.style.zIndex = '10';
+        drawCanvas.style.zIndex = '10'; // Garante que fique sobre os PDFs
         pdfPreviewWrapper.appendChild(drawCanvas);
 
         let totalHeight = 0;
@@ -163,12 +171,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const viewport = page.getViewport({ scale: 1.0 });
             const scale = containerWidth / viewport.width;
             const scaledViewport = page.getViewport({ scale });
-            
-            const canvas = document.createElement('canvas');
+
+            const canvas = document.createElement('canvas'); // Canvas para a página PDF
             canvas.height = scaledViewport.height;
             canvas.width = scaledViewport.width;
-            canvas.style.display = 'block';
-            pdfPreviewWrapper.appendChild(canvas);
+            canvas.style.display = 'block'; // Garante que as páginas fiquem uma abaixo da outra
+            pdfPreviewWrapper.appendChild(canvas); // Adiciona o canvas da página
 
             pageDimensions.push({ num: i, width: viewport.width, height: viewport.height, scaledHeight: scaledViewport.height });
             totalHeight += scaledViewport.height;
@@ -176,13 +184,15 @@ document.addEventListener('DOMContentLoaded', () => {
             await page.render({ canvasContext: canvas.getContext('2d'), viewport: scaledViewport }).promise;
         }
 
+        // Ajusta o tamanho do canvas de desenho para cobrir todas as páginas
         drawCanvas.width = containerWidth;
         drawCanvas.height = totalHeight;
 
+        // Adiciona os listeners ao canvas de desenho
         drawCanvas.addEventListener('mousedown', startDrawing);
         drawCanvas.addEventListener('mousemove', draw);
         drawCanvas.addEventListener('mouseup', stopDrawing);
-        redrawAll();
+        redrawAll(); // Redesenha áreas existentes, se houver
     }
 
     function startDrawing(event) {
@@ -262,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderizarLista(data);
             atualizarControlesPaginacao();
         } catch (error) {
-            documentList.innerHTML = `<p class="text-center text-red-500 py-8">Erro: ${error.message}</p>`;
+            documentList.innerHTML = `<p class="text-center text-red-500 py-8">Erro ao carregar documentos: ${error.message}</p>`;
         } finally {
             listLoadingFeedback.style.display = 'none';
         }
@@ -384,21 +394,23 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchFromUrlBtn.textContent = 'Buscando...';
     
         try {
+            // Invoca a função que salva no Storage e retorna o caminho
             const { data, error } = await db.supabase.functions.invoke('url-to-pdf', {
                 body: { url: url },
             });
     
             if (error) throw error;
-            if (!data.storagePath) throw new Error("A resposta da função não continha um caminho de arquivo válido.");
+            if (!data || !data.storagePath) throw new Error("A resposta da função não continha um caminho de arquivo válido.");
 
-            currentStoragePath = data.storagePath; 
+            currentStoragePath = data.storagePath; // Armazena o caminho
             const publicUrl = db.getPublicUrl(data.storagePath);
-            await preparePdfForSigning(publicUrl);
+            await preparePdfForSigning(publicUrl); // Passa a URL pública para processamento
     
         } catch (err) {
+            // Exibe a mensagem de erro vinda do try...catch da Edge Function
             alert(`Erro ao buscar o documento: ${err.message}`);
             console.error(err);
-            resetPreparationView();
+            resetPreparationView(); // Volta para a tela inicial em caso de erro
         } finally {
             fetchFromUrlBtn.disabled = false;
             fetchFromUrlBtn.textContent = 'Buscar';
@@ -416,6 +428,12 @@ document.addEventListener('DOMContentLoaded', () => {
     uploadForm.addEventListener('submit', async (event) => {
         event.preventDefault();
 
+        // Agora verificamos se temos um caminho do storage OU um arquivo local
+        if (!currentStoragePath && !currentFile) {
+             showFeedback("Nenhum documento PDF foi carregado.", "error");
+             return;
+        }
+
         if ((!skipTecnicoCheckbox.checked && !rects.tecnico) || !rects.cliente) {
             showFeedback("Defina todas as áreas de assinatura necessárias.", "error");
             return;
@@ -426,19 +444,27 @@ document.addEventListener('DOMContentLoaded', () => {
              let yOffset = 0;
              let pageNum = 0;
              for(let i=0; i<pageDimensions.length; i++){
+                 // Verifica se o ponto Y do retângulo está dentro da altura acumulada das páginas
                  if(rect.y < yOffset + pageDimensions[i].scaledHeight){
                      pageNum = i + 1;
                      break;
                  }
                  yOffset += pageDimensions[i].scaledHeight;
              }
-             if(pageNum === 0) pageNum = pageDimensions.length;
-             const pageDim = pageDimensions[pageNum-1];
-             const canvasWidth = pdfPreviewWrapper.clientWidth;
-             const scale = pageDim.width / canvasWidth;
+             // Se não encontrou (improvável), assume a última página
+             if(pageNum === 0 && pageDimensions.length > 0) pageNum = pageDimensions.length;
+             
+             // Se ainda assim for 0, usa 1 como padrão seguro
+             if(pageNum === 0) pageNum = 1;
+
+             const pageDim = pageDimensions[pageNum-1]; // Pega as dimensões da página correta
+             const canvasWidth = pdfPreviewWrapper.clientWidth; // Largura do container
+             const scale = pageDim.width / canvasWidth; // Escala original / escala exibida
+
              return {
                  page: pageNum, 
                  x: rect.x * scale,
+                 // A coordenada Y no PDF é de baixo para cima
                  y: pageDim.height - ((rect.y - yOffset) * scale) - (rect.height * scale),
                  width: rect.width * scale,
                  height: rect.height * scale
@@ -449,8 +475,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             let finalStoragePath;
             if (currentStoragePath) {
+                // Se veio da URL, o arquivo já está no Storage.
                 finalStoragePath = currentStoragePath;
             } else if (currentFile) {
+                // Se foi upload manual, fazemos o upload agora.
                 const fileName = `${Date.now()}-${sanitizarNomeArquivo(currentFile.name)}`;
                 const uploadData = await db.uploadFile(fileName, currentFile);
                 finalStoragePath = uploadData.path;
@@ -481,7 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error('Erro no processo de envio:', error);
-            showFeedback(`Erro: ${error.message}`, 'error');
+            showFeedback(`Erro ao salvar os dados: ${error.message}`, 'error');
         } finally {
             setLoading(false);
         }
